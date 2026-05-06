@@ -68,7 +68,8 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.*
-!.env.example
+.env.local
+.env.*.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -141,3 +142,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Build Outputs
+.vercel/
+out/
+
+# Supabase local state
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Chrome extension build output
+apps/extension/dist/
