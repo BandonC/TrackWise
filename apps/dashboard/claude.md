@@ -12,6 +12,8 @@ Next.js 14 (App Router) + TypeScript + Tailwind + shadcn/ui. The web-facing surf
 
 Don't propose alternatives to any of these without raising it as a separate conversation.
 
+**Initial scaffold command:** `pnpm create next-app@latest . --typescript --tailwind --app --no-src-dir --eslint --use-pnpm` (run inside `apps/dashboard/` once at project start). Don't re-run unless I ask.
+
 ## Things I need to fill in for this app
 
 - `apps/dashboard/.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`

@@ -1,41 +1,20 @@
-# TrackWise
+# TrackWise — Rules for Claude
 
-TrackWise is a job application tracker built around analytics, not just logging. A Chrome extension detects job postings on LinkedIn and Indeed and saves them to a Supabase database. A Next.js dashboard shows them as a Kanban board with response-rate analytics, time-to-response distributions, and semantic similarity search powered by pgvector and Voyage AI embeddings. The aim is to help users learn from their search — which sources convert, which kinds of roles get responses — not just keep a list. **Read this whole file before writing code.**
+This file is the source of truth for **how Claude should work in this repo**. Rules, conventions, gotchas, pacing.
+
+For **what TrackWise is** (product framing, architecture, data model, features, build plan, decisions), read `TrackWise.md` at the repo root. Read it on demand when you need facts about the system, not as orientation. **Read this whole file before writing code.**
 
 ## Day-zero state
 
-When you first read this file, the repo may be nearly empty — just this CLAUDE.md, three more CLAUDE.md files in subdirectories, a README, an `.env.example`, and a `.gitignore`. **The folders described in the "Repository layout" section below describe the *intended* structure, not what currently exists.** You will be scaffolding the real contents over time.
+When you first read this file, the repo may be nearly empty — just this CLAUDE.md, three more CLAUDE.md files in subdirectories, TrackWise.md, a README, an `.env.example`, and a `.gitignore`. **The folders described in the "Repository layout" section below describe the *intended* structure, not what currently exists.** You will be scaffolding the real contents over time.
 
 If a folder mentioned in the layout (like `packages/types` or `apps/dashboard`) doesn't exist yet and a task requires it, scaffold it as part of that task — don't refuse, but also don't pre-emptively create folders before they're needed.
-
-## About the project
-
-TrackWise is a job application tracker built around analytics, not logging. The premise is that the value of tracking applications isn't the list itself — it's what the list can teach you about your own search. Response rates, time-to-response distributions, source effectiveness, and semantic clusters within an application history reveal patterns that are otherwise invisible. Most existing trackers (Huntr, Teal, Simplify) treat the list as the primary artifact and bolt analytics on as an afterthought. TrackWise inverts that: analytics is first-class, the list is supporting infrastructure.
-
-The user is a student or early-career professional applying to dozens or hundreds of roles across LinkedIn, Indeed, and direct company career pages. They want a fast, low-friction way to capture applications as they go and a clean dashboard to review where they stand and what's working. Solo user, no collaboration features, no team accounts.
-
-What makes the project distinct from incumbents:
-- **Analytics-first dashboard.** Response rate, time-to-response, funnel, and source breakdown are the primary view, not buried in settings.
-- **Semantic similarity search via pgvector + Voyage AI embeddings.** Surfaces patterns in the kinds of roles a user pursues — "you keep applying to Kubernetes-heavy backend roles" — without manual tagging.
-- **Lightweight and no-bloat.** No paid tier nags, no upsells, no gamification. Optional account, fast load, minimal UI.
-
-When making decisions the rules don't cover, default to: prioritize analytics over list features; favor lightweight over feature-rich; favor learning-from-data over data-entry tooling.
-
-### Out of scope, with reasons
-
-- **Auto-filling job applications.** Simplify owns this niche; reproducing it adds enormous scope for marginal differentiation.
-- **Multi-user / team accounts.** Solo tool by design. RLS assumes one user per data row.
-- **Mobile apps.** Chrome extension + web dashboard cover the use cases.
-- **Resume building, cover letter generation.** Different product.
-- **Email integration (Gmail API).** Genuinely useful but adds OAuth scope, parsing complexity, and Chrome Web Store review friction. Flagged for v2.
-- **K-means clustering of embeddings.** Cluster-by-response-rate analytics would be the killer feature; deferred to v2 because it adds 5+ hours and the simpler "find similar" UX validates the embedding pipeline first.
-- **Browser notifications.** Nice-to-have, low priority.
 
 ## What you need to know about me
 
 - **I am the architect. You are the implementer.** Don't make architectural decisions without checking with me. If you think a different approach is better, say so in a sentence and wait for me to agree before changing course.
 - **I will read every line you write.** Don't generate code I won't understand.
-- **Push back when I'm wrong.** I'd rather argue for 30 seconds than debug for an hour. If I ask for something that contradicts this file, the architecture, or basic sanity, tell me before doing it.
+- **Push back when I'm wrong.** I'd rather argue for 30 seconds than debug for an hour. If I ask for something that contradicts this file, TrackWise.md, or basic sanity, tell me before doing it.
 
 ## Things I need to fill in
 
@@ -60,14 +39,13 @@ trackwise/
     dashboard/              # Next.js 14 App Router. See apps/dashboard/CLAUDE.md.
     extension/              # Chrome extension (Manifest V3). See apps/extension/CLAUDE.md.
   packages/
-    types/                  # Shared TS types between dashboard and extension.
-    db/                     # Generated Supabase types (output of `supabase gen types`).
+    types/                  # Shared TS types: generated Supabase types (db.ts, output of `supabase gen types`) plus hand-written types (e.g. status.ts).
   supabase/
     migrations/             # SQL migrations. See supabase/CLAUDE.md.
     functions/              # Edge functions (Deno). See supabase/CLAUDE.md.
-  docs/
-    ARCHITECTURE.md         # Full architectural design. Read on demand.
-  CLAUDE.md                 # This file.
+  CLAUDE.md                 # This file (rules).
+  TrackWise.md              # What TrackWise is (product, architecture, features, decisions).
+  README.md
   pnpm-workspace.yaml
   package.json
   .env.example              # Always keep up to date.
@@ -76,15 +54,12 @@ trackwise/
 
 Each subdirectory CLAUDE.md is authoritative for that surface. If something contradicts this root file, the more specific file wins, but flag the conflict so we can reconcile.
 
-## Architecture (skim, don't memorize)
+## Two-file model
 
-Three components share one Supabase project:
+- **CLAUDE.md (this file + per-folder)** — rules for how to work. Read every session.
+- **TrackWise.md** — facts about what we're building. Read on demand when you need schema details, data flow, feature specs, or the build plan.
 
-- **Extension** detects job postings on LinkedIn and Indeed, parses them, sends them to Supabase via the background service worker.
-- **Dashboard** is the management surface — Kanban board, analytics, application detail with semantic similarity search.
-- **Supabase** is Postgres + Auth + Edge Functions. The `applications` table has a `vector(512)` column populated asynchronously by an Edge Function calling Voyage AI.
-
-The full architectural design lives at `docs/ARCHITECTURE.md`. Read it on demand when you need schema details, data flow specifics, or build phasing — don't try to memorize it. CLAUDE.md files are the source of truth for rules; the architecture doc is the source of truth for what's being built.
+If a question is "how should I behave?" → CLAUDE.md. If a question is "what does this thing do?" → TrackWise.md.
 
 ## Pacing and multi-step tasks
 

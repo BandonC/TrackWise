@@ -9,6 +9,8 @@ Manifest V3 Chrome extension that detects job postings on supported sites and sa
 - @supabase/supabase-js for database access.
 - Manifest V3. There is no V2 fallback. New submissions to the Web Store must be V3.
 
+**Initial scaffold command:** `pnpm create vite@latest . --template vanilla-ts` (run inside `apps/extension/` once at project start), then install `@crxjs/vite-plugin` and configure `vite.config.ts` and `manifest.config.ts`. Don't re-run unless I ask.
+
 ## Things I need to fill in for this app
 
 - `apps/extension/.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
