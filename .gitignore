@@ -154,3 +154,6 @@ supabase/.env
 
 # Chrome extension build output
 apps/extension/dist/
+
+# Turborepo
+.turbo/
