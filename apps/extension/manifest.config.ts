@@ -6,7 +6,7 @@ export default defineManifest({
   name: 'TrackWise',
   version: pkg.version,
   description: 'Track job applications and learn from your search.',
-  permissions: ['storage', 'activeTab'],
+  permissions: ['storage', 'activeTab', 'identity'],
   host_permissions: [
     'https://www.linkedin.com/jobs/*',
     'https://www.indeed.com/viewjob*',
