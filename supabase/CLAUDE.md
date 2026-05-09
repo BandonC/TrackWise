@@ -76,6 +76,12 @@ When adding a trigger, write a function with `security invoker` (the default) un
 - The IVFFlat index is fine up to a few thousand rows. Past that, consider HNSW. Not a v1 concern.
 - Cosine distance operator is `<=>`. Similarity is `1 - distance`. Don't mix up `<=>` (cosine), `<->` (euclidean), and `<#>` (negative inner product) — they'll all "work" but give wildly different rankings.
 
+## Extensions
+
+Extension setup (`create extension`, `create schema`) belongs in `supabase/roles.sql`, not in migrations. `roles.sql` runs before migrations on `supabase start` and `supabase db reset`, and is not pushed to remote unless `--include-roles` is explicitly passed to `supabase db push`. This is the only supported pre-migration hook.
+
+Migrations that reference an extension type (e.g. `extensions.vector(512)`) depend on that extension already being present via `roles.sql`. Never put `create extension` statements in a migration file.
+
 ## Postgres views for analytics
 
 Views are the source of truth for analytics queries. They live in migrations like everything else.
@@ -193,6 +199,7 @@ Patterns that go wrong with Postgres, RLS, and Supabase specifically.
 - **Never put secrets in migrations** (e.g., as `insert` values). Migrations are committed; secrets are not.
 - **Never run destructive SQL on remote without saying it out loud first.** `drop table`, `truncate`, `delete without where`, `alter column type` on a populated column — all of these need explicit confirmation.
 - **Never query the `embedding` column directly from the dashboard.** Use the `find_similar_applications` RPC. The column is large and shouldn't be sent over the wire.
+- **Never modify a migration after I've approved it without re-approval.** If a push fails and the fix requires editing the migration, stop, show me the error and the proposed change, wait for explicit go-ahead. Edits made between approval and push are not okay even if they're "obviously correct."
 
 ## What "done" looks like for a Supabase task
 
