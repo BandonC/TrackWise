@@ -192,6 +192,12 @@ Patterns that go wrong with Postgres, RLS, and Supabase specifically.
 - `pg_net` and `pg_cron` extensions have evolved — verify the current invocation syntax before generating triggers that use them.
 - The Supabase CLI commands have changed: older tutorials use `supabase functions new`, current is the same; older tutorials may reference different login flow. Check `supabase --help` if uncertain.
 
+## Pending fixes
+
+- Auth step: drop the `temp_anon_insert` policy on both `applications` and
+  `application_events` when chrome.identity OAuth is wired into the extension.
+  Both policies must be dropped in the same migration. Show the diff before applying.
+
 ## Things to never do
 
 - **Never disable RLS on a user-data table**, even temporarily, even "just for testing." Use a service role key in a controlled context if you need to bypass RLS for a one-off task.

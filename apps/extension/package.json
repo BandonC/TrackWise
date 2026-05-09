@@ -1,0 +1,18 @@
+{
+  "name": "extension",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "@types/chrome": "^0.1.42",
+    "typescript": "^5",
+    "vite": "^7.3.3"
+  }
+}
