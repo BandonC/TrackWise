@@ -11,6 +11,10 @@ export default defineManifest({
     'https://www.linkedin.com/jobs/*',
     'https://www.indeed.com/viewjob*',
   ],
+  background: {
+    service_worker: 'src/background/service-worker.ts',
+    type: 'module',
+  },
   action: {
     default_popup: 'src/popup/index.html',
   },
