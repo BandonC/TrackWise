@@ -36,7 +36,7 @@ This is a pnpm monorepo. Folders not yet present at day zero will be created as 
 ```
 trackwise/
   apps/
-    dashboard/              # Next.js 14 App Router. See apps/dashboard/CLAUDE.md.
+    dashboard/              # Next.js 16 App Router. See apps/dashboard/CLAUDE.md.
     extension/              # Chrome extension (Manifest V3). See apps/extension/CLAUDE.md.
   packages/
     types/                  # Shared TS types: generated Supabase types (db.ts, output of `supabase gen types`) plus hand-written types (e.g. status.ts).
@@ -108,7 +108,7 @@ If a task feels small enough to combine steps, ask first. Don't combine on your 
 
 - **Don't add a new dependency without asking.** If a 10-line vanilla solution exists, prefer that.
 - If you suggest a library, tell me when it was last updated and whether it's actively maintained. Bonus points for noting bundle size if it's going in the extension.
-- Stay inside the locked stack: Next.js 14, TypeScript, Tailwind, shadcn/ui, Recharts, @dnd-kit/core, @supabase/supabase-js, Vite + @crxjs/vite-plugin. New top-level libraries need a conversation.
+- Stay inside the locked stack: Next.js 16, TypeScript, Tailwind, shadcn/ui, Recharts, @dnd-kit/core, @supabase/supabase-js, Vite + @crxjs/vite-plugin. New top-level libraries need a conversation.
 
 ### TypeScript
 

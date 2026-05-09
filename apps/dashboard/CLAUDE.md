@@ -1,10 +1,10 @@
 # TrackWise Dashboard
 
-Next.js 14 (App Router) + TypeScript + Tailwind + shadcn/ui. The web-facing surface of TrackWise. Read [the root CLAUDE.md](../../CLAUDE.md) first — this file only adds dashboard-specific rules.
+Next.js 16 (App Router) + TypeScript + Tailwind + shadcn/ui. The web-facing surface of TrackWise. Read [the root CLAUDE.md](../../CLAUDE.md) first — this file only adds dashboard-specific rules.
 
 ## Stack (locked)
 
-- Next.js 14, App Router, TypeScript strict mode
+- Next.js 16, App Router, TypeScript strict mode
 - Tailwind CSS + shadcn/ui (components installed via `npx shadcn@latest add`)
 - Recharts for analytics charts
 - @dnd-kit/core for the Kanban drag-and-drop
@@ -16,7 +16,7 @@ Don't propose alternatives to any of these without raising it as a separate conv
 
 ## Things I need to fill in for this app
 
-- `apps/dashboard/.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `apps/dashboard/.env.local` with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SITE_URL` (base URL for OAuth redirects — `http://localhost:3000` locally, production URL on Vercel)
 - A Vercel project linked to the GitHub repo (the dashboard deploys from `main`)
 - The production URL (once deployed) for setting Supabase auth redirect URLs
 
@@ -77,7 +77,7 @@ Both the server and middleware clients use `@supabase/ssr`. If you reach for `cr
 ## Styling rules
 
 - Tailwind utility classes. Don't generate giant inline `style` objects.
-- Don't introduce new design tokens or color values. Use what's in `tailwind.config.ts` and shadcn's CSS variables.
+- Don't introduce new design tokens or color values. Use what's in `app/globals.css` under `@theme` and shadcn's CSS variables.
 - shadcn components are added with `npx shadcn@latest add <component>` and live in `components/ui/`. Don't hand-roll a button if shadcn has one.
 - Dark mode: use shadcn's `next-themes` setup. Don't write custom dark mode logic.
 

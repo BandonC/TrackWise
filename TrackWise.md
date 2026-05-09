@@ -106,7 +106,7 @@ TrackWise consists of three components that share a single Supabase project as t
 | Layer | Technology | Rationale |
 |---|---|---|
 | Extension | TypeScript + Vite + @crxjs/vite-plugin | Vanilla TS keeps bundle minimal; crxjs handles Manifest V3 build complexity |
-| Dashboard framework | Next.js 14 (App Router) + TypeScript | Industry standard React framework; SSR for fast initial load |
+| Dashboard framework | Next.js 16 (App Router) + TypeScript | Industry standard React framework; SSR for fast initial load |
 | Styling | Tailwind CSS + shadcn/ui | Rapid development with polished default components |
 | Charts | Recharts | React-native, sensible defaults, clean output |
 | Drag-and-drop | @dnd-kit/core | Modern, accessible, framework-agnostic |
