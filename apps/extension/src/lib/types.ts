@@ -15,3 +15,7 @@ export type Message =
   | { type: 'sign_in' }
   | { type: 'sign_out' }
   | { type: 'get_session' }
+
+export type MessageResponse<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string }
