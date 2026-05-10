@@ -1,5 +1,6 @@
 import type { Message, MessageResponse } from '../lib/types'
 import { signInWithGoogle, signOut, getCurrentUser } from './auth'
+import { saveApplication } from './applications'
 
 chrome.runtime.onMessage.addListener(
   (message: Message, _sender, sendResponse: (response: MessageResponse) => void) => {
@@ -19,6 +20,7 @@ async function handle(message: Message): Promise<MessageResponse> {
       case 'get_session':
         return { ok: true, data: await getCurrentUser() }
       case 'save_application':
+        return { ok: true, data: await saveApplication(message.payload) }
       case 'get_recent':
         return { ok: false, error: 'not implemented' }
       default:
