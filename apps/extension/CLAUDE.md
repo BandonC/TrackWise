@@ -179,6 +179,12 @@ Extension development is the most error-prone part of this project because most 
 - Manifest V3 has changed since its initial rollout — `chrome.runtime.onInstalled`, action API, declarativeNetRequest, and host permission UX have all evolved. If you're applying a pattern from a 2022 tutorial, flag the uncertainty.
 - @crxjs/vite-plugin has had several major versions. Check the actual installed version before generating config.
 
+## Pending features
+
+The popup currently only handles sign-in / sign-out and a link to the
+dashboard. The recent-5 list and manual Add Job form described in
+TrackWise.md §5.1 are deferred until after the save flow lands.
+
 ## What "done" looks like for an extension task
 
 Before saying a feature is done:

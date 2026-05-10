@@ -11,21 +11,54 @@
         padding: 16px;
         margin: 0;
       }
-      button {
+      h2 {
+        margin: 0 0 12px;
+      }
+      button,
+      a.btn {
+        display: block;
         width: 100%;
         padding: 8px 12px;
         cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        box-sizing: border-box;
+        font: inherit;
+      }
+      button + button,
+      button + a.btn,
+      a.btn + button {
+        margin-top: 8px;
+      }
+      #email {
+        display: block;
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 12px;
+        word-break: break-all;
       }
       #status {
         margin-top: 12px;
         font-size: 13px;
         min-height: 18px;
+        color: #b00;
+      }
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
   <body>
     <h2>TrackWise</h2>
-    <button id="save-btn">Save test job</button>
+    <div id="loading">Loading...</div>
+    <div id="signed-out" hidden>
+      <button id="sign-in-btn">Sign in with Google</button>
+    </div>
+    <div id="signed-in" hidden>
+      <span id="email"></span>
+      <a id="dashboard-link" class="btn" target="_blank" rel="noopener">Open dashboard</a>
+      <button id="sign-out-btn">Sign out</button>
+    </div>
     <div id="status"></div>
     <script type="module" src="./popup.ts"></script>
   </body>
