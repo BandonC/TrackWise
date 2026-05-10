@@ -3,11 +3,40 @@ import { signInWithGoogle, signOut, getCurrentUser } from './auth'
 import { saveApplication } from './applications'
 
 chrome.runtime.onMessage.addListener(
-  (message: Message, _sender, sendResponse: (response: MessageResponse) => void) => {
+  (message: Message, sender, sendResponse: (response: MessageResponse) => void) => {
+    if (!isValidSender(message, sender)) {
+      sendResponse({ ok: false, error: 'Forbidden sender' })
+      return false
+    }
     void handle(message).then(sendResponse)
     return true
   },
 )
+
+function isValidSender(message: Message, sender: chrome.runtime.MessageSender): boolean {
+  const url = sender.tab?.url ?? sender.url ?? ''
+  let origin: string
+  try {
+    origin = new URL(url).origin
+  } catch {
+    return false
+  }
+  const fromExtension = origin === `chrome-extension://${chrome.runtime.id}`
+  const fromSite =
+    origin === 'https://www.linkedin.com' || origin === 'https://www.indeed.com'
+
+  switch (message.type) {
+    case 'sign_in':
+    case 'sign_out':
+    case 'get_session':
+      return fromExtension
+    case 'save_application':
+    case 'get_recent':
+      return fromExtension || fromSite
+    default:
+      return assertNever(message)
+  }
+}
 
 async function handle(message: Message): Promise<MessageResponse> {
   try {
