@@ -15,6 +15,13 @@ export default defineManifest({
     service_worker: 'src/background/service-worker.ts',
     type: 'module',
   },
+  content_scripts: [
+    {
+      matches: ['https://www.linkedin.com/jobs/*'],
+      js: ['src/content/index.ts'],
+      run_at: 'document_idle',
+    },
+  ],
   action: {
     default_popup: 'src/popup/index.html',
   },
