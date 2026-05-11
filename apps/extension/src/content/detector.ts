@@ -54,15 +54,36 @@ function getContentRightEdge(): number | null {
 }
 
 function positionButton(wrapper: HTMLElement) {
+  // Indeed: park just above the right pane, aligned to its right edge.
+  // Stays clean on narrower viewports because the pane is much narrower than the page.
+  const indeedPane = document.querySelector('.jobsearch-RightPane, #jobsearch-ViewjobPaneWrapper')
+  if (indeedPane) {
+    const rect = indeedPane.getBoundingClientRect()
+    if (rect.width > 0) {
+      wrapper.style.top = `${Math.max(rect.top - 48, 12)}px`
+      wrapper.style.right = `${Math.max(window.innerWidth - rect.right, 12)}px`
+      wrapper.style.left = 'auto'
+      wrapper.style.bottom = 'auto'
+      return
+    }
+  }
+
   const contentRight = getContentRightEdge()
   wrapper.style.top = `${BUTTON_TOP_PX}px`
   wrapper.style.bottom = 'auto'
 
   if (contentRight !== null) {
-    // Always tuck the button just past the content's right edge,
-    // regardless of viewport width.
-    wrapper.style.left = `${contentRight + BUTTON_GAP_PX}px`
-    wrapper.style.right = 'auto'
+    const proposedLeft = contentRight + BUTTON_GAP_PX
+    // Some sites (e.g. Indeed) expose a <main> that spans both the results
+    // list and the detail pane; anchoring past its right edge pushes the
+    // button off-screen. Fall back to viewport-right when that happens.
+    if (proposedLeft + 160 <= window.innerWidth) {
+      wrapper.style.left = `${proposedLeft}px`
+      wrapper.style.right = 'auto'
+    } else {
+      wrapper.style.left = 'auto'
+      wrapper.style.right = '24px'
+    }
   } else {
     // No content container found: last-resort viewport-right.
     wrapper.style.left = 'auto'
