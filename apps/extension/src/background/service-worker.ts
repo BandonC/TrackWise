@@ -14,16 +14,19 @@ chrome.runtime.onMessage.addListener(
 )
 
 function isValidSender(message: Message, sender: chrome.runtime.MessageSender): boolean {
-  const url = sender.tab?.url ?? sender.url ?? ''
-  let origin: string
+  const rawUrl = sender.tab?.url ?? sender.url ?? ''
+  let parsed: URL
   try {
-    origin = new URL(url).origin
+    parsed = new URL(rawUrl)
   } catch {
     return false
   }
-  const fromExtension = origin === `chrome-extension://${chrome.runtime.id}`
+  const fromExtension = parsed.origin === `chrome-extension://${chrome.runtime.id}`
   const fromSite =
-    origin === 'https://www.linkedin.com' || origin === 'https://www.indeed.com'
+    parsed.protocol === 'https:' &&
+    (parsed.hostname === 'www.linkedin.com' ||
+      parsed.hostname === 'indeed.com' ||
+      parsed.hostname.endsWith('.indeed.com'))
 
   switch (message.type) {
     case 'sign_in':

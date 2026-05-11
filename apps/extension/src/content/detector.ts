@@ -1,8 +1,9 @@
 import type { Message, MessageResponse } from '../lib/types'
 import type { Parser } from './parser-types'
 import { linkedinParser } from './linkedin-parser'
+import { indeedParser } from './indeed-parser'
 
-const parsers: Parser[] = [linkedinParser]
+const parsers: Parser[] = [linkedinParser, indeedParser]
 
 let host: HTMLElement | null = null
 let lastUrl = location.href

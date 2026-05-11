@@ -9,7 +9,8 @@ export default defineManifest({
   permissions: ['storage', 'activeTab', 'identity'],
   host_permissions: [
     'https://www.linkedin.com/jobs/*',
-    'https://www.indeed.com/viewjob*',
+    'https://*.indeed.com/viewjob*',
+    'https://*.indeed.com/jobs*',
   ],
   background: {
     service_worker: 'src/background/service-worker.ts',
@@ -17,7 +18,11 @@ export default defineManifest({
   },
   content_scripts: [
     {
-      matches: ['https://www.linkedin.com/jobs/*'],
+      matches: [
+        'https://www.linkedin.com/jobs/*',
+        'https://*.indeed.com/viewjob*',
+        'https://*.indeed.com/jobs*',
+      ],
       js: ['src/content/index.ts'],
       run_at: 'document_idle',
     },
