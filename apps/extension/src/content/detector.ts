@@ -55,20 +55,6 @@ function getContentRightEdge(): number | null {
 }
 
 function positionButton(wrapper: HTMLElement) {
-  // Indeed: park just above the right pane, aligned to its right edge.
-  // Stays clean on narrower viewports because the pane is much narrower than the page.
-  const indeedPane = document.querySelector('.jobsearch-RightPane, #jobsearch-ViewjobPaneWrapper')
-  if (indeedPane) {
-    const rect = indeedPane.getBoundingClientRect()
-    if (rect.width > 0) {
-      wrapper.style.top = `${Math.max(rect.top - 48, 12)}px`
-      wrapper.style.right = `${Math.max(window.innerWidth - rect.right, 12)}px`
-      wrapper.style.left = 'auto'
-      wrapper.style.bottom = 'auto'
-      return
-    }
-  }
-
   const contentRight = getContentRightEdge()
   wrapper.style.top = `${BUTTON_TOP_PX}px`
   wrapper.style.bottom = 'auto'
