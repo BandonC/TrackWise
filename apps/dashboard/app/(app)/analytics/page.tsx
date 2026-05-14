@@ -133,7 +133,7 @@ export default async function AnalyticsPage({
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader className="border-b bg-muted">
+          <CardHeader className="-mt-4 border-b bg-muted pt-4">
             <CardTitle>Response rate</CardTitle>
             <CardDescription>
               Share of applications that moved past Applied
@@ -162,7 +162,7 @@ export default async function AnalyticsPage({
         </Card>
 
         <Card>
-          <CardHeader className="border-b bg-muted">
+          <CardHeader className="-mt-4 border-b bg-muted pt-4">
             <CardTitle>Funnel by status</CardTitle>
             <CardDescription>
               Applications at each stage
@@ -174,7 +174,7 @@ export default async function AnalyticsPage({
         </Card>
 
         <Card>
-          <CardHeader className="border-b bg-muted">
+          <CardHeader className="-mt-4 border-b bg-muted pt-4">
             <CardTitle>Time to first response</CardTitle>
             <CardDescription>
               {responseDays.length === 0
@@ -193,7 +193,7 @@ export default async function AnalyticsPage({
         </Card>
 
         <Card>
-          <CardHeader className="border-b bg-muted">
+          <CardHeader className="-mt-4 border-b bg-muted pt-4">
             <CardTitle>Response rate by source</CardTitle>
             <CardDescription>
               Where applications convert best

@@ -1,18 +1,21 @@
 'use client'
 
-import { useOptimistic, useTransition } from 'react'
+import { useOptimistic, useState, useTransition } from 'react'
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import { STATUSES, STATUS_LABELS, type Status } from '@trackwise/types'
 import { updateApplicationStatus } from '@/app/(app)/actions'
 import {
   ApplicationCard,
+  ApplicationCardPreview,
   type KanbanApplication,
 } from './application-card'
 
@@ -47,11 +50,18 @@ export function KanbanBoard({
 }) {
   const [optimistic, addMove] = useOptimistic(grouped, applyMove)
   const [, startTransition] = useTransition()
+  const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id))
+  }
+
   function onDragEnd(event: DragEndEvent) {
+    setActiveId(null)
+
     const fromStatus = event.active.data.current?.fromStatus as
       | Status
       | undefined
@@ -69,8 +79,18 @@ export function KanbanBoard({
     })
   }
 
+  const activeApplication = activeId
+    ? STATUSES.flatMap((s) => optimistic[s]).find((a) => a.id === activeId)
+    : null
+
   return (
-    <DndContext id="kanban" sensors={sensors} onDragEnd={onDragEnd}>
+    <DndContext
+      id="kanban"
+      sensors={sensors}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         {STATUSES.map((status) => (
           <KanbanColumn
@@ -81,6 +101,11 @@ export function KanbanBoard({
           />
         ))}
       </div>
+      <DragOverlay>
+        {activeApplication ? (
+          <ApplicationCardPreview application={activeApplication} now={now} />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   )
 }
