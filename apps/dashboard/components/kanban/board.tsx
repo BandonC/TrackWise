@@ -102,11 +102,11 @@ function KanbanColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-32 flex-col gap-3 rounded-xl bg-muted/40 p-3 ring-1 transition-colors ${
+      className={`flex min-h-32 flex-col overflow-hidden rounded-xl bg-muted/40 ring-1 transition-colors ${
         isOver ? 'ring-foreground/40 bg-muted/70' : 'ring-foreground/5'
       }`}
     >
-      <header className="flex items-center justify-between px-1">
+      <header className="flex items-center justify-between border-b bg-muted px-3 py-2">
         <h2 className="font-heading text-sm font-medium">
           {STATUS_LABELS[status]}
         </h2>
@@ -114,7 +114,7 @@ function KanbanColumn({
           {applications.length}
         </span>
       </header>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 p-3">
         {applications.length === 0 ? (
           <p className="px-1 py-6 text-center text-xs text-muted-foreground">
             None

@@ -40,6 +40,8 @@ app/
 
 Route groups (`(auth)`, `(app)`) are for organization, not URL segments. Don't change them without asking.
 
+**Nav integration is a hard requirement.** Every top-level route under `(app)` (e.g. `/`, `/analytics`, `/settings`) must be reachable from the shared nav in `components/app-nav.tsx`. When you add a new route, add its link to the nav in the same commit. Detail routes like `/applications/[id]` are reached via in-page links from a list view, not from the top nav, but the list view itself must be in the nav. The goal is that the dashboard feels like one comprehensive application — never a collection of orphaned routes the user has to discover by typing URLs.
+
 ## Server vs client components
 
 - **Server components by default.** Only mark `"use client"` when the component genuinely needs interactivity, browser APIs, or hooks.
