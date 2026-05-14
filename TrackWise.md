@@ -227,7 +227,7 @@ A second trigger fires on insert to record a 'created' event and to invoke the e
 
 - B-tree on `applications(user_id, status)` — supports the dashboard's per-status queries.
 - B-tree on `applications(user_id, applied_at desc)` — supports recent-first listing.
-- IVFFlat on `applications(embedding) using vector_cosine_ops` — supports similarity search. `lists` is set to 100, appropriate up to a few thousand rows.
+- IVFFlat on `applications(embedding) using vector_cosine_ops` — **intentionally deferred** until the table reaches a few hundred rows. IVFFlat builds cluster centroids from existing data; with fewer than ~100 rows the clusters are meaningless and a sequential scan is faster anyway. When added, `lists` should be approximately `sqrt(rowcount)` (the standard pgvector heuristic), reviewed once we hit the threshold. HNSW remains overkill at this scale.
 
 ---
 
@@ -346,6 +346,8 @@ Each application's company, role, and notes are concatenated, embedded via Voyag
 2. Trigger uses pg_net to invoke the `generate-embedding` Edge Function asynchronously.
 3. Edge Function reads the row, calls Voyage AI, writes the vector back.
 4. If the call fails, the row is left with a null embedding. A nightly retry job (v2) handles missing embeddings.
+
+> **Known limitation — burst rate-limiting.** Voyage AI's free tier rejects bursts of concurrent requests (observed at ~3+ simultaneous calls during the day-6 backfill). Single-application saves are unaffected because the trigger only fires once per insert, but any batch path (initial backfill, future bulk import, account-merge) must throttle. **v2 candidate:** detect 429 in the Edge Function and either back-off-retry once in-place or write a non-2xx that pg_net's response queue can pick up via a retry worker. Not in v1 because v1 has no batch path the user will hit.
 
 **Edge Function:**
 
@@ -512,7 +514,7 @@ jobs:
 
 ### 8.1 Phased plan
 
-The build order prioritizes a working end-to-end path before depth in any single component.
+The build order prioritizes a working end-to-end path before depth in any single component. Days 1–7 ship the extension to the Chrome Web Store; days 8–11 extend the dashboard while CWS review runs in parallel (no extension code changes needed for any of them, so no resubmission).
 
 | Day | Goal | Deliverable |
 |---|---|---|
@@ -522,18 +524,23 @@ The build order prioritizes a working end-to-end path before depth in any single
 | 4 | Dashboard UX | Kanban board with drag-and-drop, status-change trigger wired up, manual add form |
 | 5 | Analytics | Postgres views, /analytics route with four charts, date filter |
 | 6 | Semantic search | pgvector setup, Edge Function, embedding trigger, similar applications UI |
-| 7 | Polish + ship | Privacy policy, README with screenshots, demo gif, Chrome Web Store submission |
+| 7 | Polish + ship | Privacy policy, README with screenshots, demo gif, Chrome Web Store submission, cross-account RLS verification |
+| 8 | Quick wins | Editable notes on `/applications/[id]`; CSV export |
+| 9–10 | Clustering analytics | K-means on embeddings, response-rate-per-cluster view, Voyage 429 retry/backoff |
+| 11 | Resume + in-context matching | `resumes` table + embedding; resume-fit score on application detail page; content-script overlay shows "this job is N% similar to your history" and "M% match to your resume" on LinkedIn/Indeed job pages |
 
-Total estimated effort: 25–35 hours of focused work.
+Total estimated effort: 40–55 hours of focused work across days 1–11.
 
-### 8.2 V2 (deliberately deferred)
+Per-day proper feature specs (in §5) are written in the same commit as that day's implementation work — the table above is the index, not the design.
 
-- K-means clustering on embeddings to identify groups of similar applications, with response rate per cluster.
-- Gmail integration via OAuth and the Gmail API to auto-detect status changes from incoming emails.
-- Support for additional job boards: Wellfound, Y Combinator's Work at a Startup, Glassdoor, university career portals.
-- Browser notifications for stale applications.
-- Resume version tagging.
-- CSV export.
+### 8.2 V2 — deferred until usage justifies the cost
+
+Features previously called "near-term" have been pulled into v1 (days 8–11, see §8.1). Everything below is genuinely post-v1: each item carries a real cost (review surface, ongoing maintenance, or external verification) that isn't worth paying until a specific signal — user demand, scale, or workflow evidence — appears.
+
+- **Gmail integration via OAuth + Gmail API.** Auto-detect status changes from incoming emails. High value, but Google's sensitive-scope verification can take weeks and adds significant Chrome Web Store review surface. Signal to revisit: 5+ users explicitly asking for it.
+- **Additional job boards** (Wellfound, Y Combinator's Work at a Startup, Glassdoor, university career portals). Pure parser work, but each adds a CWS host-permission review burden and ongoing maintenance as DOMs change. Signal to revisit: a board the primary user is actively applying through.
+- **Resume version tagging.** Useful only when the user is iterating resumes; modest data-model work (foreign key from `applications` to the day-11 `resumes` table + analytics filter), little payoff without that usage pattern. Becomes much cheaper once day 11 ships, so this is a likely first post-v1 addition if the resume-matching feature actually gets used.
+- **Browser notifications for stale applications.** Permission-prompt UX friction; the kanban's stale-dot already surfaces this in the dashboard. Signal to revisit: user actively missing follow-ups despite the in-app indicator.
 
 ---
 
@@ -558,12 +565,16 @@ Lightweight decision log. Each entry is the choice made and the reason in one or
 - **`@supabase/ssr` over `@supabase/auth-helpers-nextjs`.** auth-helpers was deprecated in 2024.
 - **Vanilla TypeScript in the extension, not React.** Bundle size matters for content scripts; Manifest V3 service workers don't need a UI framework.
 - **Postgres triggers for status-change logging, not client code.** Keeps the event log consistent regardless of who or what updates `status`. Client never writes to `application_events` for status changes.
-- **pgvector with IVFFlat instead of HNSW.** IVFFlat is fine up to a few thousand rows; HNSW is overkill for v1.
+- **pgvector with IVFFlat instead of HNSW, *and not built until row count justifies it*.** IVFFlat is fine up to a few thousand rows; HNSW is overkill for v1. The index itself is deferred until ~hundreds of rows exist, because IVFFlat needs real data to build meaningful cluster centroids — sequential scan is faster on tiny tables anyway. See §4.5.
+- **Embedding-generation secrets in Supabase Vault, not Postgres GUCs.** The pg_net trigger reads the function URL and shared secret from `vault.decrypted_secrets`. Vault gives encryption at rest, audit log, and rotation — the production-grade pattern. The trigger function is `security definer` (with `set search_path = ''`) so the `authenticated` role need not be granted vault access directly.
 - **Embeddings are fire-and-forget.** Triggered async via pg_net; saves don't block on embedding generation. Failures leave the row with a null embedding and get retried later.
 - **Server actions over API routes** in the dashboard. Simpler, progressive enhancement built in. API routes only when there's a specific reason (e.g., third-party callbacks).
 - **Three Supabase clients** in the dashboard (server, browser, middleware). Each serves a specific context; mixing them silently breaks auth.
 - **Supabase over Firebase.** Postgres is more resume-friendly than Firestore; Supabase reduces vendor lock-in.
 - **Embedding dimension locked to 512** (voyage-3-lite). Changing models requires regenerating all embeddings — flagged as a careful migration if it ever happens.
+- **V1 scope extended to days 8–11 after day 6 finished ahead of schedule.** Editable notes, CSV export, clustering analytics, Voyage rate-limit handling, resume embeddings, and in-context similarity were originally v2; they're now days 8–11 of v1. The CWS extension submission still happens at end of day 7 — none of days 8–11 touch the extension, so they run in parallel with the 3–7 day store review without needing a resubmission.
+- **No automated scraping of LinkedIn or Indeed for "find similar jobs."** Both sites' ToS forbid it, user account flagging is a real risk, and the broader host/`tabs` permissions would harm CWS review. The shipped pattern (day 11) is in-context: when the user is already on a job page, the content script computes similarity against their history using the embeddings already in place. Zero new scraping, zero new permissions.
+- **Resume content stored as plain text, embedded once per version.** Paste-text input in v1 (day 11) keeps the parsing surface zero. PDF upload + parse stays out of v1; revisit if users actually ask. Voyage call per resume version is rare enough that no separate retry pipeline is needed beyond the day-9 one.
 - **Chrome extension auth via `chrome.identity.launchWebAuthFlow`**, not the Supabase SDK's default browser flow. The default flow doesn't work cleanly in an extension popup context.
 - **Supabase pausing handled via GitHub Action**, not manual dashboard pings. Visible in the repo; serves as a small DevOps demonstration.
 
