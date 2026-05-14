@@ -191,7 +191,15 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      find_similar_applications: {
+        Args: { match_count?: number; target_id: string }
+        Returns: {
+          company: string
+          id: string
+          role: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
