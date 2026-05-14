@@ -75,6 +75,13 @@ export type Database = {
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "application_events_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "v_time_to_response"
+            referencedColumns: ["id"]
+          },
         ]
       }
       applications: {
@@ -133,7 +140,55 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_response_by_source: {
+        Row: {
+          applied_at: string | null
+          source_site: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          source_site?: never
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          source_site?: never
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      v_response_rate: {
+        Row: {
+          applied_at: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      v_time_to_response: {
+        Row: {
+          applied_at: string | null
+          days_to_response: number | null
+          first_response_at: string | null
+          id: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
