@@ -2,8 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Button } from '@/components/ui/button'
+import { signOut } from '@/app/(app)/actions'
 
 const LINKS = [
   { href: '/', label: 'Applications' },
@@ -43,6 +46,17 @@ export function AppNav() {
           })}
         </ul>
         <ThemeToggle />
+        <form action={signOut}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="icon"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="size-4" />
+          </Button>
+        </form>
       </div>
     </nav>
   )
