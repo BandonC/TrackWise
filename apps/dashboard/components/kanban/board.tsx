@@ -43,14 +43,13 @@ function applyMove(
 
 export function KanbanBoard({
   grouped,
-  now,
 }: {
   grouped: GroupedApplications
-  now: number
 }) {
   const [optimistic, addMove] = useOptimistic(grouped, applyMove)
   const [, startTransition] = useTransition()
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [now] = useState(() => Date.now())
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )

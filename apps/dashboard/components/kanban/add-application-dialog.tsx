@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,15 +24,18 @@ const initialState: CreateApplicationState = { ok: false }
 
 export function AddApplicationDialog() {
   const [open, setOpen] = useState(false)
-  const [state, formAction] = useActionState(createApplication, initialState)
   const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    if (state.ok) {
-      formRef.current?.reset()
-      setOpen(false)
-    }
-  }, [state])
+  const [state, formAction] = useActionState(
+    async (prev: CreateApplicationState, formData: FormData) => {
+      const next = await createApplication(prev, formData)
+      if (next.ok) {
+        formRef.current?.reset()
+        setOpen(false)
+      }
+      return next
+    },
+    initialState,
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
