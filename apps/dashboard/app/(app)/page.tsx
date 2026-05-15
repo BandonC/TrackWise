@@ -41,7 +41,7 @@ export default async function ApplicationsPage() {
         </div>
         <AddApplicationDialog />
       </header>
-      <KanbanBoard grouped={grouped} now={Date.now()} />
+      <KanbanBoard grouped={grouped} />
     </main>
   )
 }
