@@ -14,6 +14,7 @@ Copy `.env.local.example` to `test/.env.local` and fill in:
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+EDGE_FUNCTION_SECRET=...   # optional; cluster recompute tests skip if absent
 ```
 
 `test/.env.local` is gitignored by the root `.gitignore` (`.env.*.local`).
@@ -33,7 +34,7 @@ For DB invariants, see the comment at the top of `db-invariants.sql`.
 Manual. Run `pnpm --filter dashboard dev`, log in, click through:
 
 - `/` (kanban) — drag a card to a new column, verify it persists on reload
-- `/analytics` — all four charts render, date filter switches data
+- `/analytics` — all four charts render, date filter switches data; "Response rate by cluster" card renders and the Recompute button updates the chart
 - `/applications/<id>` — detail loads, similar applications section renders (may be empty if <2 embedded apps)
 - `/settings` — page loads
 - Sign out, confirm `(app)` routes redirect to `/login`
