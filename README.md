@@ -10,20 +10,29 @@ Most trackers treat the application list as the primary artifact and bolt analyt
 
 ## Why this exists
 
-- **Analytics-first dashboard.** Response rate, funnel, time-to-response, and source breakdown are first-class — not buried in settings.
-- **Semantic similarity via embeddings.** pgvector + Voyage AI surface patterns in the kinds of roles you pursue without manual tagging ("you keep applying to Kubernetes-heavy backend roles").
-- **Zero recurring cost.** Free tiers across Supabase, Vercel, Voyage AI, GitHub, and Chrome Web Store. $5 one-time for the developer registration.
+Existing trackers (Huntr, Teal, Simplify) treat the application list as the artifact and analytics as a side panel. TrackWise inverts that. The list exists so the analytics has something to teach you.
+
+- **Analytics is first-class, not bolted on.** Response rate, funnel, time-to-response, source effectiveness — front and center.
+- **Embeddings surface patterns you wouldn't notice manually.** K-means on Voyage AI vectors groups your applications into clusters labelled by their top companies, so you can see "I respond well to dev-tooling roles, badly to fintech" without ever tagging anything.
+- **Free-tier first.** Whole stack runs on free tiers (Supabase, Vercel, Voyage AI, GitHub). One-time $5 for the Chrome Web Store registration. $0/month recurring.
 
 ## Features
 
+### Capture
 - **Chrome extension** (Manifest V3) — detects job postings on LinkedIn (`/jobs/*`) and Indeed (`/viewjob*`, `/jobs*`) and saves them with one click.
+
+### Track
 - **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators.
-- **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
-- **Cluster analytics** — K-means over embeddings groups your applications into clusters labelled by the top companies in each, with per-cluster response rates. Recompute on demand from the analytics page.
-- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your other applications via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
 - **Editable notes** — inline note editing on the application detail page, saved via server actions.
 - **CSV export** — one-click export of all your applications from the dashboard.
-- **Account self-service** — Google OAuth sign-in; one-click account deletion that cascades to every saved application and event.
+
+### Learn
+- **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
+- **Cluster analytics** — K-means over embeddings groups your applications into clusters labelled by the top companies in each, with per-cluster response rates. Recompute on demand.
+- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your others via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
+
+### Account
+- Google OAuth sign-in; one-click account deletion that cascades to every saved application and event.
 
 ## Screenshots
 
