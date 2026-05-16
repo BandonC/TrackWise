@@ -1,1 +1,123 @@
+# TrackWise
 
+A job application tracker built around analytics, not logging.
+
+Most trackers treat the application list as the primary artifact and bolt analytics on as an afterthought. TrackWise inverts that: response rate, time-to-response, source effectiveness, and semantic clustering are the primary view; the list is supporting infrastructure.
+
+![TrackWise Kanban board](./docs/screenshots/01-kanban.png)
+
+> **Status:** v1 in launch prep. Chrome extension submitted to the Web Store; dashboard deployed to Vercel. See [Privacy Policy](https://trackwise-lac-nu.vercel.app/privacy).
+
+## Why this exists
+
+- **Analytics-first dashboard.** Response rate, funnel, time-to-response, and source breakdown are first-class — not buried in settings.
+- **Semantic similarity via embeddings.** pgvector + Voyage AI surface patterns in the kinds of roles you pursue without manual tagging ("you keep applying to Kubernetes-heavy backend roles").
+- **Zero recurring cost.** Free tiers across Supabase, Vercel, Voyage AI, GitHub, and Chrome Web Store. $5 one-time for the developer registration.
+
+## Features
+
+- **Chrome extension** (Manifest V3) — detects job postings on LinkedIn (`/jobs/*`) and Indeed (`/viewjob*`, `/jobs*`) and saves them with one click.
+- **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators.
+- **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
+- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your other applications via pgvector cosine search.
+- **Account self-service** — Google OAuth sign-in; one-click account deletion that cascades to every saved application and event.
+
+## Screenshots
+
+### Analytics
+![Analytics page with response rate, funnel, time-to-response, and source breakdown](./docs/screenshots/02-analytics.png)
+
+### Application detail with semantic similarity
+![Application detail page with status history and similar applications](./docs/screenshots/03-detail.png)
+
+### Chrome extension
+| Popup (signed in) | Save button injected on LinkedIn |
+|---|---|
+| ![Extension popup](./docs/screenshots/04-extension-popup.png) | ![Save to TrackWise button injected on a LinkedIn job listing](./docs/screenshots/05-injected-button.png) |
+
+## Architecture
+
+```
++---------------------+         +----------------------+
+|  Chrome Extension   |         |  Next.js Dashboard   |
+|  - content scripts  |         |  - Kanban board      |
+|  - background SW    |         |  - Analytics page    |
+|  - popup UI         |         |  - Detail views      |
++----------+----------+         +-----------+----------+
+           |                                |
+           |        +----------------+      |
+           +------->|    Supabase    |<-----+
+                    |  Postgres+Auth |
+                    |   + pgvector   |
+                    | + Edge Funcs   |
+                    +-------+--------+
+                            |
+                            v
+                    +----------------+
+                    |  Voyage AI API |
+                    |  (embeddings)  |
+                    +----------------+
+```
+
+The full design — data model, RLS policies, triggers, build phases, decision log — lives in [`TrackWise.md`](./TrackWise.md). The agent-facing rules for working in this repo live in [`CLAUDE.md`](./CLAUDE.md) and the per-folder equivalents.
+
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| Extension | TypeScript + Vite + @crxjs/vite-plugin (Manifest V3, vanilla TS, no React) |
+| Dashboard | Next.js 16 (App Router), TypeScript, Tailwind, shadcn/ui, Recharts, @dnd-kit/core |
+| Backend | Supabase Postgres (region `ca-central-1`) + Auth + RLS + Edge Functions (Deno) |
+| Vector search | pgvector with cosine distance |
+| Embeddings | Voyage AI `voyage-3-lite` (512 dims) |
+| Hosting | Vercel Hobby (dashboard), Chrome Web Store (extension) |
+
+## Repository layout
+
+```
+trackwise/
+  apps/
+    dashboard/   Next.js 16 App Router
+    extension/   Manifest V3 Chrome extension
+  packages/
+    types/       Generated Supabase types + shared hand-written types
+  supabase/
+    migrations/  Numbered, append-only SQL migrations
+    functions/   Deno Edge Functions (generate-embedding)
+  docs/          Verification reports, ops notes
+```
+
+## Local development
+
+Requires Node 24 (`.nvmrc`), pnpm 10, and Docker (for `supabase start`).
+
+```bash
+# 1. Install
+pnpm install
+
+# 2. Configure env
+cp .env.example apps/dashboard/.env.local
+cp .env.example apps/extension/.env.local
+# Fill in the Supabase URL/keys for each app.
+
+# 3. Run the dashboard
+pnpm --filter dashboard dev
+# → http://localhost:3000
+
+# 4. Build the extension and load it unpacked
+pnpm --filter extension build
+# Then in chrome://extensions, enable Developer mode → Load unpacked → apps/extension/dist
+```
+
+For backend work (migrations, Edge Functions), see [`supabase/CLAUDE.md`](./supabase/CLAUDE.md).
+
+## Security
+
+- Row-level security on every user-data table. Cross-account isolation verified against the production project; see [`docs/rls-verification.md`](./docs/rls-verification.md) for the full audit trail.
+- Service-role key is server-only (`import 'server-only'` on the admin client). The browser bundle never sees it.
+- Voyage AI key lives as a Supabase Edge Function secret, never in client code.
+- Extension requests only `storage`, `activeTab`, `identity`, and host permissions scoped to LinkedIn and Indeed job pages — no `<all_urls>`, no `tabs`.
+
+## License
+
+[MIT](./LICENSE) © Brandon Chong
