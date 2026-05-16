@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { NotesForm } from '@/components/applications/notes-form'
 
 type PageProps = { params: Promise<{ id: string }> }
 
@@ -135,13 +136,11 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         <h2 className="mb-2 font-heading text-sm font-medium text-muted-foreground">
           Notes
         </h2>
-        {application.notes ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-            {application.notes}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">No notes yet.</p>
-        )}
+        <NotesForm
+          key={application.id}
+          applicationId={application.id}
+          initialNotes={application.notes}
+        />
       </section>
 
       <section className="mb-8">
