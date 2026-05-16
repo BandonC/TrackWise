@@ -7,6 +7,8 @@ import {
   SourceRateChart,
   type SourceDatum,
 } from '@/components/analytics/source-rate-chart'
+import { RecomputeClustersCard } from '@/components/analytics/recompute-clusters-card'
+import type { ClusterDatum } from '@/components/analytics/cluster-rate-chart'
 import {
   Card,
   CardContent,
@@ -121,6 +123,32 @@ export default async function AnalyticsPage({
     .filter((d): d is number => d !== null)
   const histogram = bucketize(responseDays)
 
+  const clusterRows = await supabase
+    .from('v_response_rate_by_cluster')
+    .select('cluster_id, label, total, responded, rate, computed_at')
+    .order('total', { ascending: false })
+  if (clusterRows.error) throw new Error(clusterRows.error.message)
+
+  type ClusterRow = ClusterDatum & { computed_at: string | null }
+  const clusters = (clusterRows.data ?? []) as ClusterRow[]
+  const clusterData: ClusterDatum[] = clusters.map(
+    ({ cluster_id, label, total, responded, rate }) => ({
+      cluster_id,
+      label,
+      total,
+      responded,
+      rate,
+    }),
+  )
+  const lastComputedAt =
+    clusters.length > 0
+      ? clusters.reduce<string | null>(
+          (max, c) =>
+            c.computed_at && (!max || c.computed_at > max) ? c.computed_at : max,
+          null,
+        )
+      : null
+
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-8">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -203,6 +231,13 @@ export default async function AnalyticsPage({
             <SourceRateChart data={sourceData} />
           </CardContent>
         </Card>
+      </section>
+
+      <section className="mt-4">
+        <RecomputeClustersCard
+          data={clusterData}
+          lastComputedAt={lastComputedAt}
+        />
       </section>
     </main>
   )
