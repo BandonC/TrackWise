@@ -25,6 +25,20 @@ export default async function SettingsPage() {
         </p>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Your data</h2>
+        <p className="text-sm text-muted-foreground">
+          Download all of your applications as a CSV file, including notes.
+        </p>
+        <a
+          href="/applications/export"
+          download
+          className="inline-flex h-9 items-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          Export as CSV
+        </a>
+      </section>
+
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Legal</h2>
         <p className="text-sm">
