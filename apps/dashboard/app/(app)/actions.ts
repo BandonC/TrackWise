@@ -38,6 +38,8 @@ const trimmedString = (max: number) =>
     .transform((v) => (v === '' ? null : v))
     .nullable()
 
+const notesSchema = trimmedString(5000)
+
 const createApplicationSchema = z.object({
   company: z.string().trim().min(1, 'Company is required').max(200),
   role: z.string().trim().min(1, 'Role is required').max(200),
@@ -52,7 +54,7 @@ const createApplicationSchema = z.object({
     .nullable()
     .optional(),
   source_site: trimmedString(50).optional(),
-  notes: trimmedString(5000).optional(),
+  notes: notesSchema.optional(),
 })
 
 export type CreateApplicationState = {
@@ -101,6 +103,48 @@ export async function createApplication(
     return { ok: false, formError: error.message }
   }
 
+  revalidatePath('/')
+  return { ok: true }
+}
+
+const updateNotesSchema = z.object({
+  id: z.string().uuid(),
+  notes: notesSchema,
+})
+
+export type UpdateNotesState = {
+  ok: boolean
+  fieldErrors?: Record<string, string[]>
+  formError?: string
+}
+
+export async function updateApplicationNotes(
+  _prev: UpdateNotesState,
+  formData: FormData,
+): Promise<UpdateNotesState> {
+  const parsed = updateNotesSchema.safeParse({
+    id: formData.get('id'),
+    notes: formData.get('notes'),
+  })
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('applications')
+    .update({ notes: parsed.data.notes })
+    .eq('id', parsed.data.id)
+
+  if (error) {
+    return { ok: false, formError: error.message }
+  }
+
+  revalidatePath(`/applications/${parsed.data.id}`)
   revalidatePath('/')
   return { ok: true }
 }
