@@ -19,13 +19,19 @@ Most trackers treat the application list as the primary artifact and bolt analyt
 - **Chrome extension** (Manifest V3) — detects job postings on LinkedIn (`/jobs/*`) and Indeed (`/viewjob*`, `/jobs*`) and saves them with one click.
 - **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators.
 - **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
-- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your other applications via pgvector cosine search.
+- **Cluster analytics** — K-means over embeddings groups your applications into clusters labelled by the top companies in each, with per-cluster response rates. Recompute on demand from the analytics page.
+- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your other applications via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
+- **Editable notes** — inline note editing on the application detail page, saved via server actions.
+- **CSV export** — one-click export of all your applications from the dashboard.
 - **Account self-service** — Google OAuth sign-in; one-click account deletion that cascades to every saved application and event.
 
 ## Screenshots
 
 ### Analytics
 ![Analytics page with response rate, funnel, time-to-response, and source breakdown](./docs/screenshots/02-analytics.png)
+
+### Cluster analytics
+![Response-rate-by-cluster card with three K-means clusters labelled by their top companies](./docs/screenshots/06-clusters.png)
 
 ### Application detail with semantic similarity
 ![Application detail page with status history and similar applications](./docs/screenshots/03-detail.png)
@@ -83,8 +89,9 @@ trackwise/
     types/       Generated Supabase types + shared hand-written types
   supabase/
     migrations/  Numbered, append-only SQL migrations
-    functions/   Deno Edge Functions (generate-embedding)
-  docs/          Verification reports, ops notes
+    functions/   Deno Edge Functions (generate-embedding, cluster-embeddings)
+  scripts/       One-shot utilities (e.g. backfill-embeddings.mjs)
+  docs/          Verification reports, ops notes, screenshots
 ```
 
 ## Local development
