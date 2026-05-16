@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import {
   Card,
   CardContent,
@@ -35,7 +35,10 @@ export function RecomputeClustersCard({
   const relative = computed
     ? `Computed ${formatDistanceToNow(computed, { addSuffix: true })}`
     : 'Never computed'
-  const absolute = computed ? computed.toLocaleString() : ''
+  // Locale-deterministic format so SSR and client hydration match;
+  // toLocaleString() picks the runtime's default locale, which differs
+  // between Node and the browser.
+  const absolute = computed ? format(computed, 'PPpp') : ''
 
   return (
     <Card>
