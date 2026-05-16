@@ -161,3 +161,4 @@ apps/extension/dist/
 
 # Local-only seed scripts (screenshot data, dev fixtures). Not committed.
 scripts/seed-*.sql
+anon-key.txt
