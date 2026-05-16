@@ -41,6 +41,7 @@ const env = Object.fromEntries(
 const URL = env.SUPABASE_URL
 const ANON = env.SUPABASE_ANON_KEY
 const SVC = env.SUPABASE_SERVICE_ROLE_KEY
+const EDGE_SECRET = env.EDGE_FUNCTION_SECRET // optional; cluster tests skipped if absent
 if (!URL || !ANON || !SVC) {
   console.error('SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY required')
   process.exit(2)
@@ -102,6 +103,43 @@ async function signIn(email, password) {
   })
   if (!r.ok) throw new Error(`signIn ${r.status}: ${await r.text()}`)
   return r.json()
+}
+
+// Service-role PATCH for tests that need to bypass RLS (e.g. seeding
+// embeddings without calling Voyage). Use sparingly — RLS-respecting
+// `userClient` is the default.
+async function serviceUpdate(path, body) {
+  const r = await fetch(`${URL}/rest/v1/${path}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SVC,
+      Authorization: `Bearer ${SVC}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(body),
+  })
+  const text = await r.text()
+  return { status: r.status, body: text ? JSON.parse(text) : null }
+}
+
+// Build a 512-dim unit vector pointing mostly along axis `axisIdx`, with
+// small per-dimension noise so it's not exactly identical across rows in
+// the same group. Used to seed deterministic clusters without depending
+// on Voyage.
+function fakeUnitVector(axisIdx, noiseSeed) {
+  const dim = 512
+  let rng = noiseSeed >>> 0
+  const next = () => {
+    rng = (rng * 1664525 + 1013904223) >>> 0
+    return (rng / 0x100000000 - 0.5) * 0.05
+  }
+  const v = new Array(dim).fill(0).map(() => next())
+  v[axisIdx] = 1
+  let sumSq = 0
+  for (const x of v) sumSq += x * x
+  const norm = Math.sqrt(sumSq)
+  return v.map((x) => x / norm)
 }
 
 function userClient(jwt) {
@@ -184,6 +222,13 @@ try {
   assert(insA.status === 201 && Array.isArray(insA.body) && insA.body[0]?.id, `status=${insA.status}`)
   const appA1Id = insA.body?.[0]?.id
 
+  // The find_similar test below needs A1 and A2 to embed via Voyage.
+  // Voyage's free tier throttles bursts (TrackWise.md §5.6), so give the
+  // A1 embedding call a head start before triggering A2. A3 and A4 don't
+  // need real embeddings — the cluster test seeds fakes for them — so
+  // they can fire back-to-back without staggering.
+  await sleep(2500)
+
   step("user A inserts a second similar application")
   const insA2 = await cliA.insert('applications', {
     user_id: createdA.id,
@@ -204,6 +249,18 @@ try {
     notes: 'Figma, branding, illustration',
   })
   assert(insA3.status === 201, `status=${insA3.status}`)
+  const appA3Id = insA3.body?.[0]?.id
+
+  step("user A inserts a fourth application (needed for clustering ≥ 4)")
+  const insA4 = await cliA.insert('applications', {
+    user_id: createdA.id,
+    company: 'Pixel Studio',
+    role: 'Illustrator',
+    source_site: 'indeed',
+    notes: 'Vector illustration, brand systems',
+  })
+  assert(insA4.status === 201, `status=${insA4.status}`)
+  const appA4Id = insA4.body?.[0]?.id
 
   step("user B inserts an application")
   const insB = await cliB.insert('applications', {
@@ -329,6 +386,65 @@ try {
   const vsA = await cliA.select('v_response_by_source?select=user_id,source_site')
   const otherS = (vsA.body ?? []).filter((r) => r.user_id !== createdA.id)
   assert(otherS.length === 0 && (vsA.body ?? []).length >= 3, `rows=${vsA.body?.length}`)
+
+  step('clustering: seed deterministic embeddings (bypass Voyage)')
+  if (!EDGE_SECRET) {
+    fail('skipped — EDGE_FUNCTION_SECRET not in test/.env.local')
+  } else {
+    // Bypass Voyage entirely so this test isn't held hostage by free-tier
+    // rate limits. Real Voyage coverage lives in find_similar_applications
+    // above; here we only care about our cluster function's behaviour.
+    // Two groups: A1, A2 along axis 0; A3, A4 along axis 1.
+    const fakes = [
+      { id: appA1Id, vec: fakeUnitVector(0, 1) },
+      { id: appA2Id, vec: fakeUnitVector(0, 2) },
+      { id: appA3Id, vec: fakeUnitVector(1, 3) },
+      { id: appA4Id, vec: fakeUnitVector(1, 4) },
+    ]
+    let seeded = 0
+    for (const f of fakes) {
+      const res = await serviceUpdate(`applications?id=eq.${f.id}`, {
+        embedding: JSON.stringify(f.vec),
+        embedding_source: 'e2e-test-fake',
+      })
+      if (res.status === 200) seeded++
+    }
+    assert(seeded === 4, `seeded=${seeded}/4`)
+
+    step('clustering: invoke cluster-embeddings for user A')
+    const clusterRes = await fetch(`${URL}/functions/v1/cluster-embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': EDGE_SECRET },
+      body: JSON.stringify({ userId: createdA.id }),
+    })
+    const clusterBody = await clusterRes.json().catch(() => null)
+    assert(
+      clusterRes.status === 200 && clusterBody?.status === 'ok' && clusterBody?.assigned === 4,
+      `status=${clusterRes.status} body=${JSON.stringify(clusterBody)}`,
+    )
+
+    step("clustering: user A sees their own clusters via the view")
+    const aClusters = await cliA.select(
+      'v_response_rate_by_cluster?select=cluster_id,label,total,user_id',
+    )
+    const aOwn = (aClusters.body ?? []).filter((r) => r.user_id === createdA.id)
+    assert(
+      aOwn.length >= 1 && aOwn.reduce((s, r) => s + (r.total ?? 0), 0) === 4,
+      `A clusters=${aOwn.length} total_assigned=${aOwn.reduce((s, r) => s + (r.total ?? 0), 0)}`,
+    )
+
+    step("clustering: RLS — user B sees zero of user A's clusters")
+    const bClusters = await cliB.select('clusters?select=id,user_id')
+    const leakedC = (bClusters.body ?? []).filter((r) => r.user_id === createdA.id)
+    assert(leakedC.length === 0, `B sees ${bClusters.body?.length} cluster rows; leaked=${leakedC.length}`)
+
+    step("clustering: applications.cluster_id populated for A")
+    const aApps = await cliA.select(
+      'applications?select=id,cluster_id&embedding=not.is.null',
+    )
+    const withCluster = (aApps.body ?? []).filter((r) => r.cluster_id !== null).length
+    assert(withCluster === 4, `with_cluster=${withCluster}/4`)
+  }
 
   step('embedding column never sent in default applications select')
   const sel = await cliA.select(`applications?id=eq.${appA1Id}&select=*`)
