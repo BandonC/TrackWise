@@ -159,7 +159,9 @@ async function detectAndInject() {
   const parser = parsers.find((p) => p.matches(location.href))
   if (!parser) return
 
-  const ready = await waitForSelector(parser.readySelector, 5000)
+  // LinkedIn's job-title element renders late on cold load (cache-miss);
+  // 30s covers slow first paints without burning a real "give up" signal.
+  const ready = await waitForSelector(parser.readySelector, 30000)
   if (!ready) return
 
   // Re-check the URL didn't change while we were waiting.
