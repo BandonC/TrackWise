@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -87,6 +87,7 @@ export type Database = {
       applications: {
         Row: {
           applied_at: string
+          cluster_id: string | null
           company: string
           embedding: string | null
           embedding_source: string | null
@@ -104,6 +105,7 @@ export type Database = {
         }
         Insert: {
           applied_at?: string
+          cluster_id?: string | null
           company: string
           embedding?: string | null
           embedding_source?: string | null
@@ -121,6 +123,7 @@ export type Database = {
         }
         Update: {
           applied_at?: string
+          cluster_id?: string | null
           company?: string
           embedding?: string | null
           embedding_source?: string | null
@@ -134,6 +137,45 @@ export type Database = {
           source_site?: string | null
           source_url?: string | null
           status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "v_response_rate_by_cluster"
+            referencedColumns: ["cluster_id"]
+          },
+        ]
+      }
+      clusters: {
+        Row: {
+          computed_at: string
+          id: string
+          label: string
+          size: number
+          user_id: string
+        }
+        Insert: {
+          computed_at?: string
+          id?: string
+          label: string
+          size: number
+          user_id: string
+        }
+        Update: {
+          computed_at?: string
+          id?: string
+          label?: string
+          size?: number
           user_id?: string
         }
         Relationships: []
@@ -176,6 +218,18 @@ export type Database = {
           applied_at?: string | null
           status?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      v_response_rate_by_cluster: {
+        Row: {
+          cluster_id: string | null
+          computed_at: string | null
+          label: string | null
+          rate: number | null
+          responded: number | null
+          total: number | null
+          user_id: string | null
         }
         Relationships: []
       }

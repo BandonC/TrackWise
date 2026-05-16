@@ -174,6 +174,51 @@ begin
      and column_name = 'embedding';
   if n <> 1 then raise exception 'applications.embedding column missing'; end if;
 
+  -- ============================================================
+  -- Clustering (day 9–10)
+  -- ============================================================
+  -- clusters table exists
+  select count(*) into n from pg_tables
+   where schemaname = 'public' and tablename = 'clusters';
+  if n <> 1 then raise exception 'clusters table missing'; end if;
+
+  -- RLS enabled
+  select count(*) into n from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+   where ns.nspname = 'public' and c.relname = 'clusters'
+     and c.relrowsecurity = true;
+  if n <> 1 then raise exception 'RLS not enabled on clusters'; end if;
+
+  -- Policy has both using + with_check, scoped to auth.uid()
+  select count(*) into n from pg_policies
+   where schemaname = 'public' and tablename = 'clusters'
+     and qual is not null and with_check is not null
+     and qual like '%auth.uid()%' and with_check like '%auth.uid()%';
+  if n <> 1 then raise exception 'clusters policy missing or not auth.uid()-scoped'; end if;
+
+  -- applications.cluster_id FK exists with ON DELETE SET NULL
+  select count(*) into n from pg_constraint
+   where conrelid = 'public.applications'::regclass
+     and contype = 'f'
+     and confrelid = 'public.clusters'::regclass
+     and confdeltype = 'n';
+  if n <> 1 then raise exception 'applications.cluster_id FK to clusters with ON DELETE SET NULL missing'; end if;
+
+  -- View exists with security_invoker
+  select count(*) into n from pg_views
+   where schemaname = 'public' and viewname = 'v_response_rate_by_cluster';
+  if n <> 1 then raise exception 'v_response_rate_by_cluster view missing'; end if;
+
+  if not exists (
+    select 1 from pg_class c
+      join pg_namespace ns on ns.oid = c.relnamespace
+     where ns.nspname = 'public' and c.relname = 'v_response_rate_by_cluster'
+       and (c.reloptions::text ilike '%security_invoker=on%'
+            or c.reloptions::text ilike '%security_invoker=true%')
+  ) then
+    raise exception 'v_response_rate_by_cluster missing security_invoker=on';
+  end if;
+
   raise notice 'ALL DB INVARIANTS PASSED';
 end
 $$;
