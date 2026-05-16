@@ -158,3 +158,6 @@ apps/extension/dist/
 
 # Turborepo
 .turbo/
+
+# Local-only seed scripts (screenshot data, dev fixtures). Not committed.
+scripts/seed-*.sql
