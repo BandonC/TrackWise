@@ -107,6 +107,69 @@ export async function createApplication(
   return { ok: true }
 }
 
+const saveResumeSchema = z.object({
+  label: z.string().trim().min(1, 'Label is required').max(100),
+  content: z.string().trim().min(1, 'Resume content is required').max(50000),
+})
+
+export type SaveResumeState = {
+  ok: boolean
+  fieldErrors?: Record<string, string[]>
+  formError?: string
+}
+
+export async function saveResume(
+  _prev: SaveResumeState,
+  formData: FormData,
+): Promise<SaveResumeState> {
+  const parsed = saveResumeSchema.safeParse({
+    label: formData.get('label'),
+    content: formData.get('content'),
+  })
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    }
+  }
+
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return { ok: false, formError: 'Not authenticated' }
+  }
+
+  const { data: existing, error: readErr } = await supabase
+    .from('resumes')
+    .select('id')
+    .eq('user_id', userData.user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (readErr) {
+    return { ok: false, formError: readErr.message }
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from('resumes')
+      .update({ label: parsed.data.label, content: parsed.data.content })
+      .eq('id', existing.id)
+    if (error) return { ok: false, formError: error.message }
+  } else {
+    const { error } = await supabase.from('resumes').insert({
+      user_id: userData.user.id,
+      label: parsed.data.label,
+      content: parsed.data.content,
+    })
+    if (error) return { ok: false, formError: error.message }
+  }
+
+  revalidatePath('/resume')
+  return { ok: true }
+}
+
 const updateNotesSchema = z.object({
   id: z.string().uuid(),
   notes: notesSchema,
