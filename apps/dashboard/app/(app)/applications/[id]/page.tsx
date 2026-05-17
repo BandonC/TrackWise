@@ -65,21 +65,29 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
   const status = application.status as Status
 
-  const [{ data: events }, { data: similar }] = await Promise.all([
-    supabase
-      .from('application_events')
-      .select('id, event_type, from_status, to_status, created_at')
-      .eq('application_id', id)
-      .order('created_at', { ascending: true }),
-    supabase.rpc('find_similar_applications', {
-      target_id: id,
-      match_count: 5,
-    }),
-  ])
+  const [{ data: events }, { data: similar }, { data: fitRows }, { data: anyResume }] =
+    await Promise.all([
+      supabase
+        .from('application_events')
+        .select('id, event_type, from_status, to_status, created_at')
+        .eq('application_id', id)
+        .order('created_at', { ascending: true }),
+      supabase.rpc('find_similar_applications', {
+        target_id: id,
+        match_count: 5,
+      }),
+      supabase.rpc('resume_fit_for_application', { application_id: id }),
+      supabase
+        .from('resumes')
+        .select('id, embedding')
+        .eq('is_active', true)
+        .maybeSingle(),
+    ])
 
   const visibleSimilar = (similar ?? []).filter(
     (s) => similarityBand(s.similarity).visible,
   )
+  const fit = fitRows?.[0] ?? null
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8">
@@ -172,6 +180,17 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         )}
       </section>
 
+      <section className="mb-8">
+        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+          Resume fit
+        </h2>
+        <ResumeFitCard
+          fit={fit}
+          hasActiveResume={Boolean(anyResume)}
+          resumeEmbeddingReady={Boolean(anyResume?.embedding)}
+        />
+      </section>
+
       <section>
         <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
           Similar applications
@@ -228,5 +247,65 @@ function Field({
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-0.5">{value}</div>
     </div>
+  )
+}
+
+function ResumeFitCard({
+  fit,
+  hasActiveResume,
+  resumeEmbeddingReady,
+}: {
+  fit: { resume_label: string; similarity: number } | null
+  hasActiveResume: boolean
+  resumeEmbeddingReady: boolean
+}) {
+  if (!hasActiveResume) {
+    return (
+      <Card size="sm">
+        <CardContent className="flex items-center justify-between gap-4 text-sm">
+          <span className="text-muted-foreground">
+            No resume on file yet.
+          </span>
+          <Link
+            href="/resume"
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            Add your resume →
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!resumeEmbeddingReady || !fit) {
+    return (
+      <Card size="sm">
+        <CardContent className="text-sm text-muted-foreground">
+          Computing fit... embeddings populate asynchronously. Refresh in a
+          moment.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card size="sm">
+      <CardContent className="flex items-center justify-between gap-4">
+        <div>
+          <div className="font-heading text-xl font-semibold tabular-nums">
+            {(fit.similarity * 100).toFixed(0)}%
+          </div>
+          <div className="text-xs text-muted-foreground">
+            vs &ldquo;{fit.resume_label}&rdquo;
+          </div>
+        </div>
+        <Link
+          href="/resume"
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Edit resume
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
