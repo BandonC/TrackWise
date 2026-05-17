@@ -180,6 +180,42 @@ export type Database = {
         }
         Relationships: []
       }
+      resumes: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          embedding_source: string | null
+          id: string
+          is_active: boolean
+          label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          embedding_source?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          embedding_source?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_response_by_source: {
@@ -251,6 +287,14 @@ export type Database = {
           company: string
           id: string
           role: string
+          similarity: number
+        }[]
+      }
+      resume_fit_for_application: {
+        Args: { application_id: string }
+        Returns: {
+          resume_id: string
+          resume_label: string
           similarity: number
         }[]
       }
