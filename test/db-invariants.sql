@@ -219,6 +219,76 @@ begin
     raise exception 'v_response_rate_by_cluster missing security_invoker=on';
   end if;
 
+  -- ============================================================
+  -- Resumes (day 11)
+  -- ============================================================
+  -- Table exists
+  select count(*) into n from pg_tables
+   where schemaname = 'public' and tablename = 'resumes';
+  if n <> 1 then raise exception 'resumes table missing'; end if;
+
+  -- RLS enabled
+  select count(*) into n from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+   where ns.nspname = 'public' and c.relname = 'resumes'
+     and c.relrowsecurity = true;
+  if n <> 1 then raise exception 'RLS not enabled on resumes'; end if;
+
+  -- Policy has both using + with_check, scoped to auth.uid()
+  select count(*) into n from pg_policies
+   where schemaname = 'public' and tablename = 'resumes'
+     and qual is not null and with_check is not null
+     and qual like '%auth.uid()%' and with_check like '%auth.uid()%';
+  if n <> 1 then raise exception 'resumes policy missing or not auth.uid()-scoped'; end if;
+
+  -- Partial unique index enforces one active resume per user
+  select count(*) into n from pg_indexes
+   where schemaname = 'public' and tablename = 'resumes'
+     and indexname = 'resumes_one_active_per_user';
+  if n <> 1 then raise exception 'resumes_one_active_per_user partial unique index missing'; end if;
+
+  -- Embedding column exists
+  select count(*) into n from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'resumes'
+     and column_name = 'embedding';
+  if n <> 1 then raise exception 'resumes.embedding column missing'; end if;
+
+  -- Triggers
+  select count(*) into n from pg_trigger
+   where tgrelid = 'public.resumes'::regclass
+     and tgname in (
+       'on_resume_updated',
+       'on_resume_inserted_embed',
+       'on_resume_updated_embed'
+     )
+     and not tgisinternal;
+  if n <> 3 then raise exception 'expected 3 triggers on resumes, found %', n; end if;
+
+  -- request_resume_embedding must be security definer
+  select count(*) into n from pg_proc
+   where proname = 'request_resume_embedding' and prosecdef = true;
+  if n <> 1 then raise exception 'request_resume_embedding must be SECURITY DEFINER'; end if;
+
+  -- resume_fit_for_application RPC exists and is security invoker
+  select count(*) into n from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public'
+     and p.proname = 'resume_fit_for_application';
+  if n <> 1 then raise exception 'resume_fit_for_application RPC missing'; end if;
+
+  select count(*) into n from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public'
+     and p.proname = 'resume_fit_for_application'
+     and p.prosecdef = false;
+  if n <> 1 then raise exception 'resume_fit_for_application must be SECURITY INVOKER'; end if;
+
+  -- Vault secret for the resume embedding trigger
+  select count(*) into n from vault.decrypted_secrets
+   where name = 'edge_function_resume_url';
+  if n <> 1 then raise exception 'vault secret edge_function_resume_url missing'; end if;
+
   raise notice 'ALL DB INVARIANTS PASSED';
 end
 $$;
