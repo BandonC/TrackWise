@@ -1,6 +1,7 @@
 import type { Message, MessageResponse } from '../lib/types'
 import { signInWithGoogle, signOut, getCurrentUser } from './auth'
 import { saveApplication } from './applications'
+import { scoreCurrentPage } from './scoring'
 
 chrome.runtime.onMessage.addListener(
   (message: Message, sender, sendResponse: (response: MessageResponse) => void) => {
@@ -34,6 +35,7 @@ function isValidSender(message: Message, sender: chrome.runtime.MessageSender): 
     case 'get_session':
       return fromExtension
     case 'save_application':
+    case 'score_current_page':
     case 'get_recent':
       return fromExtension || fromSite
     default:
@@ -53,6 +55,8 @@ async function handle(message: Message): Promise<MessageResponse> {
         return { ok: true, data: await getCurrentUser() }
       case 'save_application':
         return { ok: true, data: await saveApplication(message.payload) }
+      case 'score_current_page':
+        return { ok: true, data: await scoreCurrentPage(message.payload) }
       case 'get_recent':
         return { ok: false, error: 'not implemented' }
       default:

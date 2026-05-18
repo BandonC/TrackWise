@@ -9,8 +9,31 @@ export type ParsedJob = {
   notes: string | null
 }
 
+export type ScorePayload = {
+  role: string
+  company: string
+  notes: string | null
+  url: string
+}
+
+export type ScoreResult = {
+  history: {
+    similarity: number
+    matched_application: {
+      id: string
+      role: string
+      company: string
+    }
+  } | null
+  resume: {
+    similarity: number
+    label: string
+  } | null
+}
+
 export type Message =
   | { type: 'save_application'; payload: ParsedJob }
+  | { type: 'score_current_page'; payload: ScorePayload }
   | { type: 'get_recent'; limit: number }
   | { type: 'sign_in' }
   | { type: 'sign_out' }

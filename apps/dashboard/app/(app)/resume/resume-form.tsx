@@ -24,9 +24,16 @@ export function ResumeForm({
 
   const [state, formAction] = useActionState(
     async (prev: SaveResumeState, formData: FormData) => {
-      const submittedLabel = (formData.get('label') as string | null) ?? ''
-      const submittedContent =
+      // Form submission converts textarea \n to \r\n (RFC 2046). The
+      // textarea's controlled state stays as \n, so we normalize the
+      // submitted value to match — otherwise the dirty check stays
+      // permanently true and the save button never disables.
+      const submittedLabel = (
+        (formData.get('label') as string | null) ?? ''
+      ).replace(/\r\n/g, '\n')
+      const submittedContent = (
         (formData.get('content') as string | null) ?? ''
+      ).replace(/\r\n/g, '\n')
       const next = await saveResume(prev, formData)
       if (next.ok) {
         setSavedLabel(submittedLabel)

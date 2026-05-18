@@ -51,6 +51,61 @@ from vault.decrypted_secrets s
 where s.name = '<secret-name>';
 ```
 
+## User-facing Edge Functions need explicit CORS headers
+
+The Supabase REST API has CORS configured globally, but Edge Functions
+do not. Any function called from a browser, extension, or any
+cross-origin client must:
+
+1. Handle the `OPTIONS` preflight request and return CORS headers.
+2. Include CORS headers on every actual response too.
+
+Without this, the fetch surfaces as `Failed to send a request to the
+Edge Function` — a *network* error, not an HTTP error — because the
+browser blocks the response before it reaches the client.
+
+Skeleton:
+
+```ts
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+  // ... do work ...
+  return new Response(JSON.stringify(body), {
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+});
+```
+
+Trigger-invoked functions (`generate-embedding`,
+`generate-resume-embedding`) don't need CORS — pg_net is a Postgres
+client, not a browser.
+
+### CORS preflight + JWT gateway: deploy user-facing functions with `--no-verify-jwt`
+
+If a user-facing function is deployed with JWT verification ON (the
+default), the Supabase gateway rejects the browser's `OPTIONS`
+preflight with 401 before it reaches the function — preflight requests
+don't carry an `Authorization` header. The function's own CORS handler
+never runs, and the browser blocks the real POST.
+
+Symptom: `Response to preflight request doesn't pass access control
+check: No 'Access-Control-Allow-Origin' header is present on the
+requested resource.`
+
+Fix: deploy with `--no-verify-jwt` AND verify the JWT manually inside
+the function via `supabase.auth.getUser(token)`. Same security
+guarantee, plus OPTIONS now flows through to our CORS handler. This is
+how `score-external-job` is configured.
+
 ## SQL editor runs as `postgres`, not as a user
 
 `auth.uid()` returns `null` in the SQL editor. Any insert into a user-data

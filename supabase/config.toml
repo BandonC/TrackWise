@@ -380,6 +380,12 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# score-external-job is called from the Chrome extension (cross-origin).
+# JWT must be verified inside the function — not at the gateway — so the
+# CORS preflight (which has no Authorization header) can pass through.
+[functions.score-external-job]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
