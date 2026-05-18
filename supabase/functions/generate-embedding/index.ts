@@ -1,7 +1,7 @@
 // generate-embedding
 //
-// Receives { applicationId } from the pg_net trigger, generates a 512-dim
-// embedding via Voyage AI (voyage-3-lite), and writes it back to the row.
+// Receives { applicationId } from the pg_net trigger, generates a 1024-dim
+// embedding via Voyage AI (voyage-3), and writes it back to the row.
 //
 // Authenticated via a shared secret in the x-internal-secret header. The
 // pg_net trigger sends this; nothing else should be able to reach the
@@ -16,8 +16,8 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
-const VOYAGE_MODEL = "voyage-3-lite";
-const EMBEDDING_DIM = 512;
+const VOYAGE_MODEL = "voyage-3";
+const EMBEDDING_DIM = 1024;
 
 // Retry config for transient Voyage errors (429, 5xx). Total worst case
 // ~5s of waiting across 3 attempts — well under the function timeout.
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
   // 5. Write back.
   const { error: writeErr } = await supabase
     .from("applications")
-    .update({ embedding, embedding_source: text })
+    .update({ embedding, embedding_source: `voyage-3:${text}` })
     .eq("id", applicationId);
 
   if (writeErr) {

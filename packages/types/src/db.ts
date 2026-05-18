@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -294,6 +294,22 @@ export type Database = {
         Args: { application_id: string }
         Returns: {
           resume_id: string
+          resume_label: string
+          similarity: number
+        }[]
+      }
+      score_external_job_history: {
+        Args: { p_query: string; p_user_id: string }
+        Returns: {
+          application_id: string
+          company: string
+          role: string
+          similarity: number
+        }[]
+      }
+      score_external_job_resume: {
+        Args: { p_query: string; p_user_id: string }
+        Returns: {
           resume_label: string
           similarity: number
         }[]

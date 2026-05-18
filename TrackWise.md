@@ -113,7 +113,7 @@ TrackWise consists of three components that share a single Supabase project as t
 | Database | Supabase Postgres + pgvector | Free tier; relational + vector search in one engine |
 | Auth | Supabase Auth | Built-in OAuth, magic link, RLS integration |
 | Edge compute | Supabase Edge Functions (Deno) | Server-side embedding generation without separate hosting |
-| Embeddings | Voyage AI (voyage-3-lite) | Free tier sufficient; high-quality embeddings |
+| Embeddings | Voyage AI (voyage-3) | Free tier sufficient; high-quality embeddings |
 | Dashboard hosting | Vercel (Hobby tier) | Free, GitHub-integrated, CDN-backed |
 | Extension distribution | Chrome Web Store | $5 one-time fee; legitimacy and discoverability |
 | Source control | GitHub (public repo) | Portfolio visibility |
@@ -160,7 +160,7 @@ create table applications (
   applied_at timestamptz not null default now(),
   last_updated_at timestamptz not null default now(),
   notes text,
-  embedding vector(512),    -- voyage-3-lite output dimension
+  embedding vector(1024),   -- voyage-3 output dimension
   embedding_source text     -- text used to generate the embedding (debugging)
 );
 ```
@@ -338,7 +338,7 @@ The Similar Applications section calls the `find_similar_applications` RPC and r
 
 ### 5.6 Semantic similarity search
 
-Each application's company, role, and notes are concatenated, embedded via Voyage AI, and stored in the `embedding` column as a 512-dimensional vector. Similarity uses cosine distance via the pgvector `<=>` operator.
+Each application's company, role, and notes are concatenated, embedded via Voyage AI, and stored in the `embedding` column as a 1024-dimensional vector. Similarity uses cosine distance via the pgvector `<=>` operator.
 
 **Generation flow** (fire-and-forget):
 
@@ -377,7 +377,7 @@ serve(async (req) => {
       'Authorization': `Bearer ${Deno.env.get('VOYAGE_API_KEY')}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ input: text, model: 'voyage-3-lite' })
+    body: JSON.stringify({ input: text, model: 'voyage-3' })
   })
 
   const { data: [{ embedding }] } = await res.json()
@@ -561,7 +561,7 @@ Features previously called "near-term" have been pulled into v1 (days 8–11, se
 
 Lightweight decision log. Each entry is the choice made and the reason in one or two lines. When a decision changes, update the entry — git history preserves the prior version.
 
-- **Voyage AI over OpenAI for embeddings.** Voyage's free tier is more generous; voyage-3-lite at 512 dimensions is cheaper to store than OpenAI's 1536.
+- **Voyage AI over OpenAI for embeddings.** Voyage's free tier is more generous; voyage-3 at 1024 dimensions still beats OpenAI's 1536.
 - **`@supabase/ssr` over `@supabase/auth-helpers-nextjs`.** auth-helpers was deprecated in 2024.
 - **Vanilla TypeScript in the extension, not React.** Bundle size matters for content scripts; Manifest V3 service workers don't need a UI framework.
 - **Postgres triggers for status-change logging, not client code.** Keeps the event log consistent regardless of who or what updates `status`. Client never writes to `application_events` for status changes.
@@ -571,7 +571,7 @@ Lightweight decision log. Each entry is the choice made and the reason in one or
 - **Server actions over API routes** in the dashboard. Simpler, progressive enhancement built in. API routes only when there's a specific reason (e.g., third-party callbacks).
 - **Three Supabase clients** in the dashboard (server, browser, middleware). Each serves a specific context; mixing them silently breaks auth.
 - **Supabase over Firebase.** Postgres is more resume-friendly than Firestore; Supabase reduces vendor lock-in.
-- **Embedding dimension locked to 512** (voyage-3-lite). Changing models requires regenerating all embeddings — flagged as a careful migration if it ever happens.
+- **Embedding dimension locked to 1024** (voyage-3). Originally 512 (voyage-3-lite); upgraded on 2026-05-18 after the resume-fit feature shipped (day 11) and produced 47% fit scores on strongly-matching real resumes. voyage-3 has stronger long-document semantic preservation and twice the dimensionality. Migration `20260518120000_voyage3_upgrade.sql` nullified every embedding; `scripts/backfill-embeddings.mjs --all` regenerated them under the new model, stamping `embedding_source` with a `voyage-3:` prefix so the script is idempotent across interruptions. Free-tier headroom unchanged (<500K tokens vs 200M cap). The upgrade alone did **not** resolve the dilution problem — software roles scored 40-46% and a control (camp counselor) scored 27%, a meaningful separation but absolute scores remained low because the single-vector resume averages across all sections. Section-chunked resumes (PR-C2) address this. Changing models again requires the same careful migration pattern.
 - **V1 scope extended to days 8–11 after day 6 finished ahead of schedule.** Editable notes, CSV export, clustering analytics, Voyage rate-limit handling, resume embeddings, and in-context similarity were originally v2; they're now days 8–11 of v1. The CWS extension submission still happens at end of day 7 — none of days 8–11 touch the extension, so they run in parallel with the 3–7 day store review without needing a resubmission.
 - **No automated scraping of LinkedIn or Indeed for "find similar jobs."** Both sites' ToS forbid it, user account flagging is a real risk, and the broader host/`tabs` permissions would harm CWS review. The shipped pattern (day 11) is in-context: when the user is already on a job page, the content script computes similarity against their history using the embeddings already in place. Zero new scraping, zero new permissions.
 - **Resume content stored as plain text, embedded once per version.** Paste-text input in v1 (day 11) keeps the parsing surface zero. PDF upload + parse stays out of v1; revisit if users actually ask. Voyage call per resume version is rare enough that no separate retry pipeline is needed beyond the day-9 one.

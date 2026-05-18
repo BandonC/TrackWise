@@ -174,6 +174,16 @@ begin
      and column_name = 'embedding';
   if n <> 1 then raise exception 'applications.embedding column missing'; end if;
 
+  -- applications.embedding must be vector(1024) (voyage-3 output dim).
+  -- Guards against a future model swap that forgets to alter the column.
+  perform 1 from pg_attribute
+   where attrelid = 'public.applications'::regclass
+     and attname  = 'embedding'
+     and format_type(atttypid, atttypmod) = 'vector(1024)';
+  if not found then
+    raise exception 'applications.embedding must be vector(1024) (voyage-3)';
+  end if;
+
   -- ============================================================
   -- Clustering (day 9–10)
   -- ============================================================
@@ -253,6 +263,15 @@ begin
      and table_name = 'resumes'
      and column_name = 'embedding';
   if n <> 1 then raise exception 'resumes.embedding column missing'; end if;
+
+  -- resumes.embedding must be vector(1024) (voyage-3 output dim).
+  perform 1 from pg_attribute
+   where attrelid = 'public.resumes'::regclass
+     and attname  = 'embedding'
+     and format_type(atttypid, atttypmod) = 'vector(1024)';
+  if not found then
+    raise exception 'resumes.embedding must be vector(1024) (voyage-3)';
+  end if;
 
   -- Triggers
   select count(*) into n from pg_trigger

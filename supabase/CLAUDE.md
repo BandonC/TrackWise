@@ -72,7 +72,7 @@ When adding a trigger, write a function with `security invoker` (the default) un
 
 ### pgvector specifics
 
-- The embedding dimension is **512**, matching `voyage-3-lite` output. If you ever change the embedding model, the column type must change and all existing embeddings must be regenerated. This is a migration that requires care — flag it instead of doing it casually.
+- The embedding dimension is **1024**, matching `voyage-3` output. If you ever change the embedding model, the column type must change and all existing embeddings must be regenerated. This is a migration that requires care — flag it instead of doing it casually. The 512→1024 migration is the only model change to date (see TrackWise.md §10).
 - The IVFFlat index is fine up to a few thousand rows. Past that, consider HNSW. Not a v1 concern.
 - Cosine distance operator is `<=>`. Similarity is `1 - distance`. Don't mix up `<=>` (cosine), `<->` (euclidean), and `<#>` (negative inner product) — they'll all "work" but give wildly different rankings.
 
@@ -80,7 +80,7 @@ When adding a trigger, write a function with `security invoker` (the default) un
 
 Extension setup (`create extension`, `create schema`) belongs in `supabase/roles.sql`, not in migrations. `roles.sql` runs before migrations on `supabase start` and `supabase db reset`, and is not pushed to remote unless `--include-roles` is explicitly passed to `supabase db push`. This is the only supported pre-migration hook.
 
-Migrations that reference an extension type (e.g. `extensions.vector(512)`) depend on that extension already being present via `roles.sql`. Never put `create extension` statements in a migration file.
+Migrations that reference an extension type (e.g. `extensions.vector(1024)`) depend on that extension already being present via `roles.sql`. Never put `create extension` statements in a migration file.
 
 ## Postgres views for analytics
 
@@ -107,7 +107,7 @@ This function:
 1. Receives a JSON body with `applicationId`.
 2. Reads the application row (using the service role client).
 3. Builds the input text: `${role} at ${company}. ${notes ?? ""}`.
-4. Calls Voyage AI's `/v1/embeddings` endpoint with model `voyage-3-lite`.
+4. Calls Voyage AI's `/v1/embeddings` endpoint with model `voyage-3`.
 5. Writes the resulting vector and the source text back to the row.
 
 It is **fire-and-forget**. Failures are logged but don't surface to the user. A nightly retry job (TODO, v2) will pick up rows with null embeddings.
@@ -174,7 +174,7 @@ Patterns that go wrong with Postgres, RLS, and Supabase specifically.
 
 - **Don't mix up the distance operators.** `<=>` is cosine distance, `<->` is L2/euclidean, `<#>` is negative inner product. Using the wrong one changes the ranking and won't error.
 - **Don't forget that distance and similarity are inverses.** `1 - distance` for cosine. The closest match has the smallest distance and the largest similarity.
-- **Don't query the `embedding` column from the client.** It's a 512-dim float array — large. Always go through an RPC that returns just the IDs and similarity scores.
+- **Don't query the `embedding` column from the client.** It's a 1024-dim float array — large. Always go through an RPC that returns just the IDs and similarity scores.
 - **Don't create the IVFFlat index before there's data.** It needs at least some rows to build cluster centroids. Create the index after the first batch of data, or skip the index entirely until you have a few hundred rows.
 
 ### Edge Function mistakes
