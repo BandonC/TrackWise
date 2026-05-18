@@ -24,8 +24,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
-const VOYAGE_MODEL = "voyage-3-lite";
-const EMBEDDING_DIM = 512;
+const VOYAGE_MODEL = "voyage-3";
+const EMBEDDING_DIM = 1024;
 
 const MAX_VOYAGE_ATTEMPTS = 3;
 const BACKOFF_MS = [1000, 4000];

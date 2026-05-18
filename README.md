@@ -29,7 +29,7 @@ Existing trackers (Huntr, Teal, Simplify) treat the application list as the arti
 ### Learn
 - **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
 - **Cluster analytics** — K-means over embeddings groups your applications into clusters labelled by the top companies in each, with per-cluster response rates. Recompute on demand.
-- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3-lite`, 512 dims) and matched against your others via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
+- **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3`, 1024 dims) and matched against your others via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
 
 ### Account
 - Google OAuth sign-in; one-click account deletion that cascades to every saved application and event.
@@ -84,7 +84,7 @@ The full design — data model, RLS policies, triggers, build phases, decision l
 | Dashboard | Next.js 16 (App Router), TypeScript, Tailwind, shadcn/ui, Recharts, @dnd-kit/core |
 | Backend | Supabase Postgres (region `ca-central-1`) + Auth + RLS + Edge Functions (Deno) |
 | Vector search | pgvector with cosine distance |
-| Embeddings | Voyage AI `voyage-3-lite` (512 dims) |
+| Embeddings | Voyage AI `voyage-3` (1024 dims) |
 | Hosting | Vercel Hobby (dashboard), Chrome Web Store (extension) |
 
 ## Repository layout

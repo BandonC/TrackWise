@@ -1,7 +1,7 @@
 // generate-resume-embedding
 //
-// Receives { resumeId } from the pg_net trigger, generates a 512-dim
-// embedding via Voyage AI (voyage-3-lite) over the resume content,
+// Receives { resumeId } from the pg_net trigger, generates a 1024-dim
+// embedding via Voyage AI (voyage-3) over the resume content,
 // and writes it back to the row.
 //
 // Mirrors generate-embedding: same shared-secret header, same Voyage
@@ -16,8 +16,8 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
-const VOYAGE_MODEL = "voyage-3-lite";
-const EMBEDDING_DIM = 512;
+const VOYAGE_MODEL = "voyage-3";
+const EMBEDDING_DIM = 1024;
 
 const MAX_VOYAGE_ATTEMPTS = 3;
 const BACKOFF_MS = [1000, 4000];
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
   // 5. Write back.
   const { error: writeErr } = await supabase
     .from("resumes")
-    .update({ embedding, embedding_source: text })
+    .update({ embedding, embedding_source: `voyage-3:${text}` })
     .eq("id", resumeId);
 
   if (writeErr) {

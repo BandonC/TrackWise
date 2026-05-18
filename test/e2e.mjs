@@ -123,12 +123,12 @@ async function serviceUpdate(path, body) {
   return { status: r.status, body: text ? JSON.parse(text) : null }
 }
 
-// Build a 512-dim unit vector pointing mostly along axis `axisIdx`, with
+// Build a 1024-dim unit vector pointing mostly along axis `axisIdx`, with
 // small per-dimension noise so it's not exactly identical across rows in
 // the same group. Used to seed deterministic clusters without depending
 // on Voyage.
 function fakeUnitVector(axisIdx, noiseSeed) {
-  const dim = 512
+  const dim = 1024
   let rng = noiseSeed >>> 0
   const next = () => {
     rng = (rng * 1664525 + 1013904223) >>> 0
