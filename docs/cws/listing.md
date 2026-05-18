@@ -29,7 +29,7 @@ Save jobs from LinkedIn and Indeed with one click. View them on a five-column Ka
 The companion dashboard at trackwise-lac-nu.vercel.app gives you:
 
 • Response rate, funnel by status, time-to-first-response, and breakdown by source
-• Semantic similarity — applications are embedded via Voyage AI's voyage-3-lite model, then matched against your other applications using pgvector cosine search. Spot patterns in the kinds of roles you pursue without manual tagging.
+• Semantic similarity — applications are embedded via Voyage AI's voyage-3 model, then matched against your other applications using pgvector cosine search. Spot patterns in the kinds of roles you pursue without manual tagging.
 • A clean, ad-free, no-upsell UI
 
 Your data is yours. Sign-in is Google OAuth via Supabase. All data is row-level-security-isolated to your account — no other user can read or write your applications. You can delete your account and every saved row from the dashboard's Settings page at any time.
