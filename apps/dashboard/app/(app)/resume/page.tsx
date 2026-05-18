@@ -20,11 +20,17 @@ export default async function ResumePage() {
   const supabase = await createClient()
   const { data: resume } = await supabase
     .from('resumes')
-    .select('id, label, content, updated_at, embedding')
+    .select('id, label, content, updated_at, embedding, embedding_source')
     .eq('is_active', true)
     .maybeSingle()
 
-  const hasEmbedding = resume?.embedding !== null && resume?.embedding !== undefined
+  // "Ready" only when the stored embedding was generated from the
+  // *current* content. After a content edit, the row still has the
+  // previous embedding until the async trigger overwrites it.
+  const hasEmbedding =
+    resume?.embedding !== null &&
+    resume?.embedding !== undefined &&
+    resume?.embedding_source === resume?.content
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">

@@ -1,4 +1,4 @@
-import type { Message, MessageResponse } from '../lib/types'
+import type { Message, MessageResponse, ScoreResult } from '../lib/types'
 import type { Parser } from './parser-types'
 import { linkedinParser } from './linkedin-parser'
 import { indeedParser } from './indeed-parser'
@@ -91,6 +91,12 @@ function injectButton(parser: Parser) {
 
   const style = document.createElement('style')
   style.textContent = `
+    .row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+    }
     button {
       font: 500 14px system-ui, -apple-system, sans-serif;
       letter-spacing: 0.01em;
@@ -115,19 +121,112 @@ function injectButton(parser: Parser) {
     button.success:hover { background: #047857; }
     button.error { background: #b91c1c; }
     button.error:hover { background: #b91c1c; }
+    button.secondary {
+      background: white;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+    }
+    button.secondary:hover {
+      background: #f1f5f9;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+    }
+    .panel {
+      margin-top: 4px;
+      padding: 14px 16px 12px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      color: #0f172a;
+      font: 13px system-ui, -apple-system, sans-serif;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      min-width: 240px;
+      position: relative;
+    }
+    .panel .close {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      background: transparent;
+      color: #64748b;
+      box-shadow: none;
+      padding: 2px 6px;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .panel .close:hover {
+      background: #f1f5f9;
+      transform: none;
+      box-shadow: none;
+    }
+    .panel h4 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .stat {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .stat:last-child { border-bottom: none; }
+    .stat .label { color: #475569; font-size: 12px; }
+    .stat .sub { color: #94a3b8; font-size: 11px; display: block; margin-top: 2px; }
+    .stat .value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      font-size: 15px;
+    }
+    .panel .empty {
+      color: #64748b;
+      font-size: 12px;
+      padding: 4px 0;
+    }
+    .panel .footer {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #f1f5f9;
+      color: #94a3b8;
+      font-size: 10px;
+    }
   `
   shadow.appendChild(style)
 
-  const btn = document.createElement('button')
-  btn.textContent = 'Save to TrackWise'
-  btn.addEventListener('click', () => handleClick(parser, btn))
-  shadow.appendChild(btn)
+  const row = document.createElement('div')
+  row.className = 'row'
+
+  const saveBtn = document.createElement('button')
+  saveBtn.textContent = 'Save to TrackWise'
+  saveBtn.addEventListener('click', () => handleSaveClick(parser, saveBtn))
+  row.appendChild(saveBtn)
+
+  const fitBtn = document.createElement('button')
+  fitBtn.className = 'secondary'
+  fitBtn.textContent = 'Check fit'
+  row.appendChild(fitBtn)
+
+  const panel = document.createElement('div')
+  panel.className = 'panel'
+  panel.style.display = 'none'
+  row.appendChild(panel)
+
+  fitBtn.addEventListener('click', () =>
+    handleFitClick(parser, fitBtn, panel),
+  )
+
+  shadow.appendChild(row)
 
   document.body.appendChild(wrapper)
   host = wrapper
 }
 
-async function handleClick(parser: Parser, btn: HTMLButtonElement) {
+async function handleSaveClick(parser: Parser, btn: HTMLButtonElement) {
   btn.disabled = true
   btn.className = ''
   btn.textContent = 'Saving...'
@@ -151,6 +250,151 @@ async function handleClick(parser: Parser, btn: HTMLButtonElement) {
     btn.className = ''
     btn.textContent = 'Save to TrackWise'
   }, 2500)
+}
+
+async function handleFitClick(
+  parser: Parser,
+  btn: HTMLButtonElement,
+  panel: HTMLElement,
+) {
+  btn.disabled = true
+  const originalText = btn.textContent ?? 'Check fit'
+  btn.textContent = 'Checking...'
+
+  try {
+    const parsed = parser.parse()
+    if (!parsed.role || !parsed.company) {
+      throw new Error("Couldn't read this listing")
+    }
+    const message: Message = {
+      type: 'score_current_page',
+      payload: {
+        role: parsed.role,
+        company: parsed.company,
+        notes: parsed.notes,
+        url: location.href,
+      },
+    }
+    const response = (await chrome.runtime.sendMessage(
+      message,
+    )) as MessageResponse<ScoreResult>
+    if (!response.ok) throw new Error(response.error)
+    renderPanel(panel, response.data)
+    panel.style.display = 'block'
+  } catch (e) {
+    renderError(panel, e instanceof Error ? e.message : 'Error')
+    panel.style.display = 'block'
+  }
+
+  btn.disabled = false
+  btn.textContent = originalText
+}
+
+function pct(n: number): string {
+  return `${Math.round(n * 100)}%`
+}
+
+function renderPanel(panel: HTMLElement, result: ScoreResult) {
+  panel.textContent = ''
+  const close = document.createElement('button')
+  close.className = 'close'
+  close.textContent = '×'
+  close.addEventListener('click', () => {
+    panel.style.display = 'none'
+  })
+  panel.appendChild(close)
+
+  const heading = document.createElement('h4')
+  heading.textContent = 'TrackWise fit'
+  panel.appendChild(heading)
+
+  panel.appendChild(buildStat('Matches your history', result.history))
+  panel.appendChild(buildResumeStat(result.resume))
+
+  const footer = document.createElement('div')
+  footer.className = 'footer'
+  footer.textContent = 'Cached for 24h. Click again to refresh.'
+  panel.appendChild(footer)
+}
+
+function buildStat(
+  label: string,
+  history: ScoreResult['history'],
+): HTMLElement {
+  const row = document.createElement('div')
+  row.className = 'stat'
+
+  const left = document.createElement('div')
+  const labelEl = document.createElement('div')
+  labelEl.className = 'label'
+  labelEl.textContent = label
+  left.appendChild(labelEl)
+
+  if (history) {
+    const sub = document.createElement('div')
+    sub.className = 'sub'
+    sub.textContent = `closest: ${history.matched_application.role} at ${history.matched_application.company}`
+    left.appendChild(sub)
+  }
+
+  const value = document.createElement('div')
+  value.className = 'value'
+  value.textContent = history ? pct(history.similarity) : '—'
+
+  row.appendChild(left)
+  row.appendChild(value)
+  return row
+}
+
+function buildResumeStat(resume: ScoreResult['resume']): HTMLElement {
+  const row = document.createElement('div')
+  row.className = 'stat'
+
+  const left = document.createElement('div')
+  const labelEl = document.createElement('div')
+  labelEl.className = 'label'
+  labelEl.textContent = 'Matches your resume'
+  left.appendChild(labelEl)
+
+  if (resume) {
+    const sub = document.createElement('div')
+    sub.className = 'sub'
+    sub.textContent = `vs "${resume.label}"`
+    left.appendChild(sub)
+  } else {
+    const sub = document.createElement('div')
+    sub.className = 'sub'
+    sub.textContent = 'no active resume'
+    left.appendChild(sub)
+  }
+
+  const value = document.createElement('div')
+  value.className = 'value'
+  value.textContent = resume ? pct(resume.similarity) : '—'
+
+  row.appendChild(left)
+  row.appendChild(value)
+  return row
+}
+
+function renderError(panel: HTMLElement, message: string) {
+  panel.textContent = ''
+  const close = document.createElement('button')
+  close.className = 'close'
+  close.textContent = '×'
+  close.addEventListener('click', () => {
+    panel.style.display = 'none'
+  })
+  panel.appendChild(close)
+
+  const heading = document.createElement('h4')
+  heading.textContent = 'TrackWise fit'
+  panel.appendChild(heading)
+
+  const empty = document.createElement('div')
+  empty.className = 'empty'
+  empty.textContent = message
+  panel.appendChild(empty)
 }
 
 async function detectAndInject() {
