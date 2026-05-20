@@ -10,6 +10,24 @@ function textOf(selectors: string[]): string | null {
   return null
 }
 
+// See linkedin-parser.ts for the cap rationale. Indeed's JD
+// container is generally cleaner than LinkedIn's (single
+// #jobDescriptionText element) but the same defense-in-depth
+// cap applies.
+const MAX_JD_LEN = 10000
+
+function jdOf(selectors: string[]): string | null {
+  for (const sel of selectors) {
+    const el = document.querySelector(sel)
+    const text = el?.textContent
+      ?.replace(/\s+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    if (text) return text.slice(0, MAX_JD_LEN)
+  }
+  return null
+}
+
 export const indeedParser: Parser = {
   name: 'indeed',
 
@@ -47,6 +65,12 @@ export const indeedParser: Parser = {
       '[data-testid="job-location"]',
     ])
 
+    const job_description = jdOf([
+      '#jobDescriptionText',
+      '[data-testid="jobsearch-JobComponent-description"]',
+      '.jobsearch-JobComponent-description',
+    ])
+
     return {
       company,
       role,
@@ -56,6 +80,7 @@ export const indeedParser: Parser = {
       source_url: window.location.href,
       source_site: 'indeed',
       notes: null,
+      job_description,
     }
   },
 }
