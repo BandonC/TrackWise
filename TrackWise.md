@@ -161,7 +161,14 @@ create table applications (
   last_updated_at timestamptz not null default now(),
   notes text,
   embedding vector(1024),   -- voyage-3 output dimension
-  embedding_source text     -- text used to generate the embedding (debugging)
+  embedding_source text,    -- text used to generate the embedding (debugging)
+  -- Resume-fit cache (PR-C2). Populated by the dashboard server
+  -- component on first detail-page view; invalidated row-locally
+  -- when applications.embedding changes (notes/role/company edit).
+  -- See section 5.6.
+  resume_fit_similarity float,
+  resume_fit_section_label text,
+  resume_fit_computed_at timestamptz
 );
 ```
 
@@ -177,6 +184,43 @@ create table application_events (
   to_status text,
   created_at timestamptz not null default now()
 );
+```
+
+#### resumes
+
+Per-user resume store. Exactly one row per user is flagged `is_active`. Multiple rows allowed for v2's version-tagging story (§8.2); v1 surfaces only the active one. The `embedding` column originally held a single resume-wide vector; **removed in PR-C2** (2026-05-19) — chunks are now the source of truth for fit scoring. `embedding_source` stays as the marker the backfill script (`scripts/backfill-embeddings.mjs --all`) keys off.
+
+```sql
+create table resumes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  label text not null,
+  content text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  embedding_source text     -- marker: 'voyage-3:' (legacy) | 'voyage-3-chunked:' (PR-C2)
+);
+```
+
+#### resume_chunks
+
+Section-level pieces of a resume. One row per chunk: SKILLS / EDUCATION / SUMMARY as one each, one chunk per project under PROJECTS, one chunk per role under EXPERIENCE. Splitting is multi-tier (header detection → blank-line item split → merge-back of stragglers); see §5.6. `user_id` denormalized for cheap RLS that doesn't chase the resume FK with a subquery.
+
+```sql
+create table resume_chunks (
+  id uuid primary key default gen_random_uuid(),
+  resume_id uuid not null references resumes(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  section_label text not null,
+  section_text text not null,
+  ordinal int not null,
+  embedding vector(1024),
+  embedding_source text,
+  created_at timestamptz not null default now()
+);
+
+-- Unique (resume_id, ordinal) guards against duplicate fan-out inserts.
 ```
 
 ### 4.3 Row-level security
@@ -338,14 +382,46 @@ The Similar Applications section calls the `find_similar_applications` RPC and r
 
 ### 5.6 Semantic similarity search
 
-Each application's company, role, and notes are concatenated, embedded via Voyage AI, and stored in the `embedding` column as a 1024-dimensional vector. Similarity uses cosine distance via the pgvector `<=>` operator.
+Two embedding paths feed two features:
 
-**Generation flow** (fire-and-forget):
+- **Application similarity (find_similar_applications).** Each application's role + company + notes is embedded as one 1024-dim vector and stored on `applications.embedding`. Cosine over those vectors powers the "Similar applications" section of the detail page.
+- **Resume fit (resume_fit_for_application + score_external_job_resume).** Resumes are split into section-level chunks; each chunk is embedded separately and stored in `resume_chunks`. The fit RPC returns the top-5 candidate chunks by cosine against the application's embedding, and the dashboard hands those candidates to Voyage's `rerank-2.5` cross-encoder for the final scoring.
 
-1. Trigger fires on insert into `applications`.
-2. Trigger uses pg_net to invoke the `generate-embedding` Edge Function asynchronously.
-3. Edge Function reads the row, calls Voyage AI, writes the vector back.
-4. If the call fails, the row is left with a null embedding. A nightly retry job (v2) handles missing embeddings.
+**Application embedding (fire-and-forget):**
+
+1. Trigger fires on insert into `applications`, or on update of role/company/notes.
+2. Trigger uses pg_net to invoke `generate-embedding` asynchronously.
+3. Edge Function reads the row, calls Voyage `voyage-3`, writes the vector + `embedding_source` back. A row-local trigger nulls the resume-fit cache on this row in the same step (it's now stale).
+4. Failures leave the row with a null embedding; backfill script reconciles.
+
+**Resume chunking + embedding (PR-C2, fire-and-forget):**
+
+1. Trigger fires on insert into `resumes` or update of `content`.
+2. Trigger uses pg_net to invoke `generate-resume-embedding`.
+3. Edge Function splits the content into chunks via a multi-tier strategy:
+   - **Tier 1 — header detection.** ALL-CAPS lines, markdown headers, or `Title:` lines. Within Projects/Experience, sub-split items on blank lines.
+   - **Tier 2 — block split.** If no headers were found, split the whole text on double blank lines.
+   - **Tier 3 — single chunk.** Fall back to one `full` chunk so saves never fail to embed.
+   - **Merge pass.** Within a section, fold short or continuation-shaped blocks (Tech Stack:, bullet lines, paragraphs whose first line exceeds 60 chars) back into the previous chunk. Prevents over-splitting title+company stubs from their responsibilities.
+4. Edge Function batches all chunk texts into **one** Voyage call (`input: string[]`) and writes the N chunk rows in one INSERT. The parent's `embedding_source` is stamped `voyage-3-chunked:<text>` so the backfill script's idempotency check works.
+
+**Resume-fit scoring (rerank, with cache):**
+
+The dashboard's application detail page is a Server Component. On render:
+
+1. Read the application including its cache columns: `resume_fit_similarity`, `resume_fit_section_label`, `resume_fit_computed_at`.
+2. In parallel, read the newest `resume_chunks.created_at` on the user's active resume (the freshness marker).
+3. **Cache valid** when `resume_fit_computed_at IS NOT NULL AND >= max(chunk.created_at)`. Lazy comparison — no resume-side invalidation trigger, no fan-out write on resume save.
+4. **Cache miss:** call `resume_fit_for_application(application_id, top_k => 5)` for the top-5 candidate chunks, build the query as `${role} at ${company}. ${notes ?? ''}`, call Voyage `rerank-2.5` via `apps/dashboard/lib/rerank.ts`, write the winner back to the cache columns, render.
+5. **Rerank unreachable:** fall back to the highest-cosine candidate so the card still renders.
+
+The extension overlay's `score-external-job` Edge Function follows the same rerank flow inline (no cache — every overlay click is an ad-hoc query that hasn't been seen before).
+
+> **Why chunks + rerank.** voyage-3-lite at 512 dim and voyage-3 at 1024 dim both produced fit scores in the 40s on a strongly-matching real resume (PR-C1, 2026-05-18). Root cause: a single resume vector is an average across all sections, which doesn't look like any concrete job posting → cosine sits at baseline. Chunking lets the matching section's embedding compete on its own. Rerank further addresses the case where cosine over independent embeddings can't capture conceptual relationships ("AI Engineer" matching a project that doesn't share surface vocabulary). See §10 for the measured outcome.
+
+> **Known limitation — burst rate-limiting.** Voyage AI's free tier rejects bursts of concurrent requests (observed at ~3+ simultaneous calls during the day-6 backfill). Single-application saves are unaffected because the trigger only fires once per insert, but any batch path (initial backfill, future bulk import, account-merge) must throttle. The Edge Functions retry transient 429/5xx in-place; the backfill script spaces calls by 10s.
+
+> **Known limitation — detail-page fit is bounded by stored application content.** The dashboard's per-application fit card compares against `${role} at ${company}. ${notes ?? ''}`. For a manually-added application with empty notes, that's ~20-50 characters — and rerank scores reflect that thin input even when the resume is rich. The extension overlay does not have this limitation because it scores against the live page content at click time. Day-12 tracks (§8.1) address this: PR-C3 (LLM scoring) removes the input-content dependency entirely; PR-D1 captures the JD into a dedicated column on extension save; PR-D2 adds a manual paste UX; PR-D3 persists overlay readings back to the application row.
 
 > **Known limitation — burst rate-limiting.** Voyage AI's free tier rejects bursts of concurrent requests (observed at ~3+ simultaneous calls during the day-6 backfill). Single-application saves are unaffected because the trigger only fires once per insert, but any batch path (initial backfill, future bulk import, account-merge) must throttle. **v2 candidate:** detect 429 in the Edge Function and either back-off-retry once in-place or write a non-2xx that pg_net's response queue can pick up via a retry worker. Not in v1 because v1 has no batch path the user will hit.
 
@@ -367,7 +443,7 @@ serve(async (req) => {
     .from('applications')
     .select('company, role, notes')
     .eq('id', applicationId)
-    .single()
+    .maybeSingle()
 
   const text = `${app.role} at ${app.company}. ${app.notes ?? ''}`
 
@@ -528,8 +604,19 @@ The build order prioritizes a working end-to-end path before depth in any single
 | 8 | Quick wins | Editable notes on `/applications/[id]`; CSV export |
 | 9–10 | Clustering analytics | K-means on embeddings, response-rate-per-cluster view, Voyage 429 retry/backoff |
 | 11 | Resume + in-context matching | `resumes` table + embedding; resume-fit score on application detail page; content-script overlay shows "this job is N% similar to your history" and "M% match to your resume" on LinkedIn/Indeed job pages |
+| 12 | Fit-score quality | Address the input-poverty ceiling exposed by PR-C2 (chunking + rerank-2.5). The detail-page rerank query is `${role} at ${company}. ${notes ?? ''}`, which is ~20-50 chars for typical applications because notes is empty by default. See the four mitigation tracks below. |
 
-Total estimated effort: 40–55 hours of focused work across days 1–11.
+Total estimated effort: 40–55 hours of focused work across days 1–11. Day 12 is additive and scoped per-track.
+
+#### Day 12 — Fit-score quality tracks
+
+Four mitigation options identified during PR-C2 measurement. They're complementary; the recommended sequence is C3 first (universal floor), then D1 (extension capture). Track D2 and D3 are situational.
+
+- **PR-C3 — LLM-based scoring (Claude Haiku).** The algorithm fix. Replace the rerank-only path with `{resume chunks, role, company, notes}` → Claude Haiku → fit score with one-sentence reasoning. Bypasses input poverty because the model can infer what a role likely requires from just the title ("Backend Engineer at Stripe" → "probably wants distributed systems, Go/Rust"). Works uniformly across extension and manual saves regardless of notes content. New API integration; ~500ms-1s latency per cache miss; ~$0.001/call. **Recommended first** because it solves the universal case without depending on any other track.
+- **PR-D1 — Extension parser captures JD body.** The content fix for automated saves. New `applications.job_description text` column distinct from `notes` (notes stays for user commentary). LinkedIn and Indeed parsers extract the JD body into the new column; embedding flow concatenates it. Every future extension save has rich content. Trade-off: parser maintenance burden; doesn't help applications saved before this track ships (would need a separate backfill UX for that).
+- **PR-D2 — Manual paste UX on detail page.** Stopgap content fix that works for any save path. Adds a "Paste job description" textarea on detail pages without a populated JD column. User-initiated per application; useful for backfilling D1's gap on existing rows, and for users on save paths D1 doesn't cover (manual add form).
+- **PR-D3 — Overlay-to-app persistence.** Bridge fix. When the extension overlay's "Check fit" button runs against a page whose URL matches an existing application, persist the overlay's rerank result into that app's cache columns. The detail page then displays the (richer) overlay-derived score. Cheap and clever but only helps the subset of applications the user actively re-checks via the overlay.
+- **Deliberately NOT pursued — server-side re-scraping of the source URL.** LinkedIn and Indeed actively block server-side scrapers (anti-bot, IP blocks), and the ToS concerns from §10 still apply. Client-side re-scraping requires the extension to be open, which makes it equivalent to D3 minus the persistence step. Not worth the operational surface.
 
 Per-day proper feature specs (in §5) are written in the same commit as that day's implementation work — the table above is the index, not the design.
 
@@ -575,6 +662,7 @@ Lightweight decision log. Each entry is the choice made and the reason in one or
 - **V1 scope extended to days 8–11 after day 6 finished ahead of schedule.** Editable notes, CSV export, clustering analytics, Voyage rate-limit handling, resume embeddings, and in-context similarity were originally v2; they're now days 8–11 of v1. The CWS extension submission still happens at end of day 7 — none of days 8–11 touch the extension, so they run in parallel with the 3–7 day store review without needing a resubmission.
 - **No automated scraping of LinkedIn or Indeed for "find similar jobs."** Both sites' ToS forbid it, user account flagging is a real risk, and the broader host/`tabs` permissions would harm CWS review. The shipped pattern (day 11) is in-context: when the user is already on a job page, the content script computes similarity against their history using the embeddings already in place. Zero new scraping, zero new permissions.
 - **Resume content stored as plain text, embedded once per version.** Paste-text input in v1 (day 11) keeps the parsing surface zero. PDF upload + parse stays out of v1; revisit if users actually ask. Voyage call per resume version is rare enough that no separate retry pipeline is needed beyond the day-9 one.
+- **Resume fit moved to section-chunked embeddings + cross-encoder rerank** (PR-C2, 2026-05-19/20). The voyage-3-lite → voyage-3 model upgrade (PR-C1) widened the spread between matching and control jobs but left absolute fit scores in the 40s because the single resume vector averaged across all sections. PR-C2 splits resumes into chunks (SKILLS / EDUCATION / SUMMARY as one each; one chunk per project under Projects; one chunk per role under Experience), stored in `resume_chunks` with cascade-on-delete and a `(resume_id, ordinal)` unique index. The fit RPCs now return the top-5 candidates by cosine; the dashboard server component and the `score-external-job` Edge Function hand those to Voyage `rerank-2.5` for the final score. Cache lives on `applications` (`resume_fit_*` columns) with lazy timestamp-based invalidation against `max(resume_chunks.created_at)` for the active resume — no fan-out trigger on resume save, scales to any application count. Latency is acceptable for solo-user MVP (one rerank call per cache miss). Migration sequence: `20260519120000_resume_chunks.sql` (additive table) → deploy chunking function → backfill → `20260519120100_resume_chunks_swap.sql` (drops `resumes.embedding`, swaps fit RPCs) → `20260520120000_resume_fit_rerank.sql` (cache columns + top-K return shape). On the live test set (12 applications, one resume), software roles broke ~22 pt above the cosine baseline that the camp-counselor control sat at — the discrimination signal that the pre-chunk pipeline could not produce.
 - **Chrome extension auth via `chrome.identity.launchWebAuthFlow`**, not the Supabase SDK's default browser flow. The default flow doesn't work cleanly in an extension popup context.
 - **Supabase pausing handled via GitHub Action**, not manual dashboard pings. Visible in the repo; serves as a small DevOps demonstration.
 
