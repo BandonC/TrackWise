@@ -361,27 +361,60 @@ begin
   -- ============================================================
   -- Resume-fit cache on applications (PR-C2)
   -- ============================================================
-  -- Three cache columns landed in 20260520120000_resume_fit_rerank.sql:
-  --   resume_fit_similarity, resume_fit_section_label, resume_fit_computed_at.
+  -- Three cache columns landed in 20260520120000_resume_fit_rerank.sql;
+  -- resume_fit_reasoning added in 20260520150000_resume_fit_reasoning.sql
+  -- (PR-C3) so the Haiku tier's one-sentence explanation persists with
+  -- the score.
   select count(*) into n from information_schema.columns
    where table_schema = 'public' and table_name = 'applications'
      and column_name in (
        'resume_fit_similarity',
        'resume_fit_section_label',
+       'resume_fit_reasoning',
        'resume_fit_computed_at'
      );
-  if n <> 3 then
-    raise exception 'expected 3 resume-fit cache columns on applications, found %', n;
+  if n <> 4 then
+    raise exception 'expected 4 resume-fit cache columns on applications, found %', n;
   end if;
 
   -- Row-local invalidation function + trigger.
   -- The trigger nulls the cache columns when applications.embedding
-  -- changes (notes/role/company edit -> regenerated embedding).
+  -- changes (notes/role/company/job_description edit -> regenerated
+  -- embedding).
   select count(*) into n from pg_proc p
     join pg_namespace ns on ns.oid = p.pronamespace
    where ns.nspname = 'public'
      and p.proname = 'invalidate_application_fit_cache';
   if n <> 1 then raise exception 'invalidate_application_fit_cache function missing'; end if;
+
+  -- ============================================================
+  -- applications.job_description (PR-D1)
+  -- ============================================================
+  -- Column added in 20260520160000_application_job_description.sql.
+  -- The extension parsers populate it at save time; embedding flow
+  -- concatenates it into the embedding source.
+  select count(*) into n from information_schema.columns
+   where table_schema = 'public' and table_name = 'applications'
+     and column_name = 'job_description';
+  if n <> 1 then raise exception 'applications.job_description column missing'; end if;
+
+  -- Embedding trigger must watch job_description so edits re-embed.
+  -- pg_trigger.tgattr lists the watched column attnums for UPDATE OF
+  -- triggers; we verify the trigger exists and that job_description's
+  -- attnum is in its watched set.
+  select count(*) into n
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace ns on ns.oid = c.relnamespace
+    join pg_attribute a on a.attrelid = c.oid
+   where ns.nspname = 'public'
+     and c.relname = 'applications'
+     and t.tgname = 'on_application_updated_embed'
+     and a.attname = 'job_description'
+     and a.attnum = any(t.tgattr);
+  if n <> 1 then
+    raise exception 'on_application_updated_embed must watch job_description';
+  end if;
 
   raise notice 'ALL DB INVARIANTS PASSED';
 end
