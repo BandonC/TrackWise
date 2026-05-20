@@ -272,6 +272,7 @@ async function handleFitClick(
         role: parsed.role,
         company: parsed.company,
         notes: parsed.notes,
+        job_description: parsed.job_description,
         url: location.href,
       },
     }
