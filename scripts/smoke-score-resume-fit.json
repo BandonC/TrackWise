@@ -1,0 +1,20 @@
+{
+  "query": "AI Engineer at Prepr.",
+  "candidates": [
+    {
+      "section_label": "SKILLS",
+      "section_text": "Languages: Java, Python, JavaScript, TypeScript, C++\nFrontend: React, HTML5, CSS3, Tailwind CSS\nBackend: Node.js, Express, REST APIs\nDatabases: MongoDB, MySQL, PostgreSQL\nTools & Platforms: Git, GitHub, Docker, VS Code, Linux, Postman\nConcepts: OOP, Data Structures & Algorithms, MVC Architecture, Agile Development",
+      "similarity": 0.42
+    },
+    {
+      "section_label": "PROJECTS - TaskFlow",
+      "section_text": "TaskFlow – Full-Stack Task Management App\nBuilt a full-stack task management application using React and Node.js\nDesigned RESTful APIs to handle user authentication and task CRUD operations\nImplemented JWT-based authentication and protected routes\nUsed MongoDB for persistent data storage with optimized schema design\nDeployed application using cloud hosting (e.g., Render / Vercel)\n\nTech Stack: React, Node.js, Express, MongoDB, JWT",
+      "similarity": 0.40
+    },
+    {
+      "section_label": "PROJECTS - Stock Insight Dashboard",
+      "section_text": "Stock Insight Dashboard\nDeveloped a responsive dashboard displaying real-time stock data using public APIs\nImplemented data visualization components for price trends and volume analysis\nCached API responses to improve performance and reduce redundant requests\nBuilt reusable UI components with React\n\nTech Stack: React, JavaScript, Chart.js, REST APIs",
+      "similarity": 0.38
+    }
+  ]
+}
