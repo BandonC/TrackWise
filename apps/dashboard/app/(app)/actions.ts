@@ -12,6 +12,23 @@ export async function signOut() {
   redirect('/login')
 }
 
+export async function deleteApplication(formData: FormData) {
+  const id = formData.get('id')
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error('Invalid application id')
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('applications').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/')
+  redirect('/')
+}
+
 export async function updateApplicationStatus(id: string, status: Status) {
   if (!STATUSES.includes(status)) {
     throw new Error(`Invalid status: ${status}`)
