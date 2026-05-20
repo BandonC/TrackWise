@@ -27,6 +27,10 @@ const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_MODEL = "voyage-3";
 const EMBEDDING_DIM = 1024;
 
+const VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank";
+const VOYAGE_RERANK_MODEL = "rerank-2.5";
+const RERANK_TIMEOUT_MS = 8000;
+
 const MAX_VOYAGE_ATTEMPTS = 3;
 const BACKOFF_MS = [1000, 4000];
 const MAX_RETRY_AFTER_MS = 8000;
@@ -93,6 +97,65 @@ async function callVoyage(
     lastRes = res;
   }
   return lastRes!;
+}
+
+// Voyage rerank-2.5 cross-encoder. Given a query and N candidate
+// resume chunks, returns the index of the highest-relevance
+// candidate and its relevance score. Returns null on any failure
+// (timeout, non-2xx, malformed body) so the caller can fall back
+// to the top cosine candidate.
+async function voyageRerank(
+  voyageKey: string,
+  query: string,
+  documents: string[],
+): Promise<{ index: number; relevance_score: number } | null> {
+  if (documents.length === 0) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RERANK_TIMEOUT_MS);
+  try {
+    const res = await fetch(VOYAGE_RERANK_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${voyageKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        documents,
+        model: VOYAGE_RERANK_MODEL,
+        top_k: 1,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("score-external-job: rerank error", res.status, detail);
+      return null;
+    }
+    // Voyage's rerank response wraps results under `data`, not
+    // `results` (their published docs are misleading on this).
+    const body = (await res.json()) as {
+      data?: Array<{ index?: number; relevance_score?: number }>;
+    };
+    const top = body.data?.[0];
+    if (
+      !top ||
+      typeof top.index !== "number" ||
+      top.index < 0 ||
+      top.index >= documents.length ||
+      typeof top.relevance_score !== "number"
+    ) {
+      console.error("score-external-job: unexpected rerank shape", body);
+      return null;
+    }
+    return { index: top.index, relevance_score: top.relevance_score };
+  } catch (err) {
+    console.error("score-external-job: rerank request failed", err);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function validateString(
@@ -242,16 +305,54 @@ Deno.serve(async (req) => {
     return json({ error: "score failed" }, 500);
   }
 
-  const { data: resumeRow, error: resumeErr } = await adminClient
+  // Resume side: cosine narrows to top-5 candidates, then
+  // rerank-2.5 picks the real winner. If rerank fails for any
+  // reason, fall back to the highest-cosine candidate so the
+  // overlay still renders.
+  const { data: resumeRows, error: resumeErr } = await adminClient
     .rpc("score_external_job_resume", {
       p_user_id: userId,
       p_query: queryLiteral,
-    })
-    .maybeSingle();
+      p_top_k: 5,
+    });
 
   if (resumeErr) {
     console.error("score-external-job: resume rpc failed", resumeErr);
     return json({ error: "score failed" }, 500);
+  }
+
+  type ResumeCandidate = {
+    resume_label: string;
+    similarity: number;
+    section_label: string;
+    section_text: string;
+  };
+  const candidates = (resumeRows ?? []) as ResumeCandidate[];
+
+  let resumeOut: {
+    similarity: number;
+    label: string;
+    section: string;
+  } | null = null;
+
+  if (candidates.length > 0) {
+    const rerankWinner = await voyageRerank(
+      voyageKey,
+      text,
+      candidates.map((c) => c.section_text),
+    );
+    const winner = rerankWinner
+      ? {
+          candidate: candidates[rerankWinner.index],
+          similarity: rerankWinner.relevance_score,
+        }
+      : { candidate: candidates[0], similarity: candidates[0].similarity };
+
+    resumeOut = {
+      similarity: winner.similarity,
+      label: winner.candidate.resume_label,
+      section: winner.candidate.section_label,
+    };
   }
 
   return json(
@@ -266,12 +367,7 @@ Deno.serve(async (req) => {
             },
           }
         : null,
-      resume: resumeRow
-        ? {
-            similarity: resumeRow.similarity,
-            label: resumeRow.resume_label,
-          }
-        : null,
+      resume: resumeOut,
     },
     200,
   );

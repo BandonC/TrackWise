@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { NotesForm } from '@/components/applications/notes-form'
+import { DeleteApplicationButton } from '@/components/applications/delete-application-button'
+import { rerank } from '@/lib/rerank'
 
 type PageProps = { params: Promise<{ id: string }> }
 
@@ -55,7 +57,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const { data: application, error } = await supabase
     .from('applications')
     .select(
-      'id, company, role, location, salary_min, salary_max, source_url, source_site, status, applied_at, last_updated_at, notes',
+      'id, company, role, location, salary_min, salary_max, source_url, source_site, status, applied_at, last_updated_at, notes, embedding_source, resume_fit_similarity, resume_fit_section_label, resume_fit_computed_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -65,29 +67,112 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
   const status = application.status as Status
 
-  const [{ data: events }, { data: similar }, { data: fitRows }, { data: anyResume }] =
-    await Promise.all([
-      supabase
-        .from('application_events')
-        .select('id, event_type, from_status, to_status, created_at')
-        .eq('application_id', id)
-        .order('created_at', { ascending: true }),
-      supabase.rpc('find_similar_applications', {
-        target_id: id,
-        match_count: 5,
-      }),
-      supabase.rpc('resume_fit_for_application', { application_id: id }),
-      supabase
-        .from('resumes')
-        .select('id, embedding')
-        .eq('is_active', true)
-        .maybeSingle(),
-    ])
+  const [
+    { data: events },
+    { data: similar },
+    { data: anyResume },
+    { data: latestChunk },
+  ] = await Promise.all([
+    supabase
+      .from('application_events')
+      .select('id, event_type, from_status, to_status, created_at')
+      .eq('application_id', id)
+      .order('created_at', { ascending: true }),
+    supabase.rpc('find_similar_applications', {
+      target_id: id,
+      match_count: 5,
+    }),
+    supabase
+      .from('resumes')
+      .select('id, label')
+      .eq('is_active', true)
+      .maybeSingle(),
+    // The "freshness" marker for the fit cache: max created_at
+    // across the user's active resume's chunks. Inner join on
+    // resumes.is_active scopes to the active resume; RLS scopes
+    // to the user. If chunks updated after computed_at, recompute.
+    supabase
+      .from('resume_chunks')
+      .select('created_at, resumes!inner(is_active)')
+      .eq('resumes.is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   const visibleSimilar = (similar ?? []).filter(
     (s) => similarityBand(s.similarity).visible,
   )
-  const fit = fitRows?.[0] ?? null
+
+  // Resume-fit cache-aside. The cache lives on the application
+  // row; staleness is checked by comparing computed_at to the
+  // active resume's newest chunk timestamp (no resume-side
+  // invalidation trigger -- that approach didn't scale). On miss
+  // we fetch top-5 by cosine, hand them to Voyage rerank-2.5
+  // for cross-encoder scoring, write back the winner, and
+  // render. If rerank is unreachable, fall back to the highest
+  // cosine candidate so the card still renders something
+  // sensible.
+  const hasEmbedding = application.embedding_source !== null
+  const chunksUpdatedAt = latestChunk?.created_at ?? null
+  const cacheValid =
+    application.resume_fit_computed_at !== null &&
+    chunksUpdatedAt !== null &&
+    application.resume_fit_computed_at >= chunksUpdatedAt
+
+  let fit: { similarity: number; section_label: string } | null = null
+
+  if (anyResume && hasEmbedding && chunksUpdatedAt) {
+    if (
+      cacheValid &&
+      application.resume_fit_similarity !== null &&
+      application.resume_fit_section_label !== null
+    ) {
+      fit = {
+        similarity: application.resume_fit_similarity,
+        section_label: application.resume_fit_section_label,
+      }
+    } else {
+      const { data: candidates } = await supabase.rpc(
+        'resume_fit_for_application',
+        { application_id: id, top_k: 5 },
+      )
+
+      if (candidates && candidates.length > 0) {
+        const query =
+          `${application.role} at ${application.company}. ${application.notes ?? ''}`.trim()
+        const winner = await rerank(
+          query,
+          candidates.map((c) => ({
+            section_label: c.section_label,
+            section_text: c.section_text,
+          })),
+        )
+
+        if (winner) {
+          fit = {
+            similarity: winner.relevance_score,
+            section_label: winner.section_label,
+          }
+          await supabase
+            .from('applications')
+            .update({
+              resume_fit_similarity: winner.relevance_score,
+              resume_fit_section_label: winner.section_label,
+              resume_fit_computed_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+        } else {
+          // Voyage rerank failed; fall back to highest cosine.
+          const best = candidates[0]
+          fit = {
+            similarity: best.similarity,
+            section_label: best.section_label,
+          }
+        }
+      }
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8">
@@ -186,8 +271,8 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         </h2>
         <ResumeFitCard
           fit={fit}
+          resumeLabel={anyResume?.label ?? null}
           hasActiveResume={Boolean(anyResume)}
-          resumeEmbeddingReady={Boolean(anyResume?.embedding)}
         />
       </section>
 
@@ -231,6 +316,17 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           </ul>
         )}
       </section>
+
+      <section className="mt-12 border-t border-border/50 pt-6">
+        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+          Danger zone
+        </h2>
+        <DeleteApplicationButton
+          applicationId={application.id}
+          role={application.role}
+          company={application.company}
+        />
+      </section>
     </main>
   )
 }
@@ -252,12 +348,12 @@ function Field({
 
 function ResumeFitCard({
   fit,
+  resumeLabel,
   hasActiveResume,
-  resumeEmbeddingReady,
 }: {
-  fit: { resume_label: string; similarity: number } | null
+  fit: { similarity: number; section_label: string } | null
+  resumeLabel: string | null
   hasActiveResume: boolean
-  resumeEmbeddingReady: boolean
 }) {
   if (!hasActiveResume) {
     return (
@@ -277,7 +373,7 @@ function ResumeFitCard({
     )
   }
 
-  if (!resumeEmbeddingReady || !fit) {
+  if (!fit) {
     return (
       <Card size="sm">
         <CardContent className="text-sm text-muted-foreground">
@@ -296,7 +392,10 @@ function ResumeFitCard({
             {(fit.similarity * 100).toFixed(0)}%
           </div>
           <div className="text-xs text-muted-foreground">
-            vs &ldquo;{fit.resume_label}&rdquo;
+            vs &ldquo;{resumeLabel ?? '—'}&rdquo;
+          </div>
+          <div className="text-xs text-muted-foreground">
+            matched on: {fit.section_label}
           </div>
         </div>
         <Link
