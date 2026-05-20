@@ -20,17 +20,18 @@ export default async function ResumePage() {
   const supabase = await createClient()
   const { data: resume } = await supabase
     .from('resumes')
-    .select('id, label, content, updated_at, embedding, embedding_source')
+    .select('id, label, content, updated_at, embedding_source')
     .eq('is_active', true)
     .maybeSingle()
 
-  // "Ready" only when the stored embedding was generated from the
-  // *current* content. After a content edit, the row still has the
-  // previous embedding until the async trigger overwrites it.
+  // "Ready" only when the active chunk set was generated from the
+  // *current* content. The chunking Edge Function stamps
+  // embedding_source as `voyage-3-chunked:${trimmed-content}` after
+  // a successful re-chunk; if it doesn't match, the user edited the
+  // text and the async trigger hasn't repopulated yet.
   const hasEmbedding =
-    resume?.embedding !== null &&
-    resume?.embedding !== undefined &&
-    resume?.embedding_source === resume?.content
+    resume?.embedding_source ===
+    `voyage-3-chunked:${resume?.content?.trim() ?? ''}`
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">

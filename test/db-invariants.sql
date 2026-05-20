@@ -98,10 +98,11 @@ begin
        'on_application_created',
        'on_status_change',
        'on_application_inserted_embed',
-       'on_application_updated_embed'
+       'on_application_updated_embed',
+       'on_application_embedding_change_invalidate_fit'
      )
      and not tgisinternal;
-  if n <> 4 then raise exception 'expected 4 triggers on applications, found %', n; end if;
+  if n <> 5 then raise exception 'expected 5 triggers on applications, found %', n; end if;
 
   -- Trigger functions are defined
   select count(*) into n from pg_proc p
@@ -257,21 +258,15 @@ begin
      and indexname = 'resumes_one_active_per_user';
   if n <> 1 then raise exception 'resumes_one_active_per_user partial unique index missing'; end if;
 
-  -- Embedding column exists
+  -- resumes.embedding column was DROPPED in
+  -- 20260519120100_resume_chunks_swap.sql -- resume embeddings now
+  -- live on resume_chunks. Assert the column is GONE so a future
+  -- migration that re-adds it has to think about why.
   select count(*) into n from information_schema.columns
    where table_schema = 'public'
      and table_name = 'resumes'
      and column_name = 'embedding';
-  if n <> 1 then raise exception 'resumes.embedding column missing'; end if;
-
-  -- resumes.embedding must be vector(1024) (voyage-3 output dim).
-  perform 1 from pg_attribute
-   where attrelid = 'public.resumes'::regclass
-     and attname  = 'embedding'
-     and format_type(atttypid, atttypmod) = 'vector(1024)';
-  if not found then
-    raise exception 'resumes.embedding must be vector(1024) (voyage-3)';
-  end if;
+  if n <> 0 then raise exception 'resumes.embedding should not exist (chunks replaced it)'; end if;
 
   -- Triggers
   select count(*) into n from pg_trigger
@@ -307,6 +302,86 @@ begin
   select count(*) into n from vault.decrypted_secrets
    where name = 'edge_function_resume_url';
   if n <> 1 then raise exception 'vault secret edge_function_resume_url missing'; end if;
+
+  -- ============================================================
+  -- Resume chunks (PR-C2)
+  -- ============================================================
+  -- Table exists
+  select count(*) into n from pg_tables
+   where schemaname = 'public' and tablename = 'resume_chunks';
+  if n <> 1 then raise exception 'resume_chunks table missing'; end if;
+
+  -- RLS enabled
+  select count(*) into n from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+   where ns.nspname = 'public' and c.relname = 'resume_chunks'
+     and c.relrowsecurity = true;
+  if n <> 1 then raise exception 'RLS not enabled on resume_chunks'; end if;
+
+  -- Policy has both using + with_check, scoped to auth.uid()
+  select count(*) into n from pg_policies
+   where schemaname = 'public' and tablename = 'resume_chunks'
+     and qual is not null and with_check is not null
+     and qual like '%auth.uid()%' and with_check like '%auth.uid()%';
+  if n <> 1 then raise exception 'resume_chunks policy missing or not auth.uid()-scoped'; end if;
+
+  -- FK to resumes with ON DELETE CASCADE so chunks die with the parent
+  select count(*) into n from pg_constraint
+   where conrelid = 'public.resume_chunks'::regclass
+     and contype = 'f'
+     and confrelid = 'public.resumes'::regclass
+     and confdeltype = 'c';
+  if n <> 1 then raise exception 'resume_chunks FK to resumes must be ON DELETE CASCADE'; end if;
+
+  -- Unique (resume_id, ordinal) guards against duplicate ordinals
+  -- if a fan-out insert ever runs twice.
+  select count(*) into n from pg_indexes
+   where schemaname = 'public' and tablename = 'resume_chunks'
+     and indexname = 'resume_chunks_resume_id_ordinal_key';
+  if n <> 1 then raise exception 'unique index resume_chunks (resume_id, ordinal) missing'; end if;
+
+  -- Embedding column is vector(1024) (voyage-3 output dim)
+  perform 1 from pg_attribute
+   where attrelid = 'public.resume_chunks'::regclass
+     and attname  = 'embedding'
+     and format_type(atttypid, atttypmod) = 'vector(1024)';
+  if not found then
+    raise exception 'resume_chunks.embedding must be vector(1024) (voyage-3)';
+  end if;
+
+  -- ============================================================
+  -- score_external_job_resume RPC (PR-C2 returns top-K with chunks)
+  -- ============================================================
+  -- Must be security definer (called from service-role Edge Function
+  -- context with an explicit p_user_id filter; RLS bypassed).
+  select count(*) into n from pg_proc
+   where proname = 'score_external_job_resume' and prosecdef = true;
+  if n <> 1 then raise exception 'score_external_job_resume must be SECURITY DEFINER'; end if;
+
+  -- ============================================================
+  -- Resume-fit cache on applications (PR-C2)
+  -- ============================================================
+  -- Three cache columns landed in 20260520120000_resume_fit_rerank.sql:
+  --   resume_fit_similarity, resume_fit_section_label, resume_fit_computed_at.
+  select count(*) into n from information_schema.columns
+   where table_schema = 'public' and table_name = 'applications'
+     and column_name in (
+       'resume_fit_similarity',
+       'resume_fit_section_label',
+       'resume_fit_computed_at'
+     );
+  if n <> 3 then
+    raise exception 'expected 3 resume-fit cache columns on applications, found %', n;
+  end if;
+
+  -- Row-local invalidation function + trigger.
+  -- The trigger nulls the cache columns when applications.embedding
+  -- changes (notes/role/company edit -> regenerated embedding).
+  select count(*) into n from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public'
+     and p.proname = 'invalidate_application_fit_cache';
+  if n <> 1 then raise exception 'invalidate_application_fit_cache function missing'; end if;
 
   raise notice 'ALL DB INVARIANTS PASSED';
 end
