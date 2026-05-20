@@ -58,7 +58,13 @@ if (limitArg && (!Number.isInteger(limit) || limit <= 0)) {
   process.exit(2)
 }
 
-// Per-table config: which endpoint, body key, display fields.
+// Per-table config: which endpoint, body key, display fields,
+// and the filters used for default (nulls only) vs --all
+// (anything not yet on the current pipeline). The marker token
+// differs across tables: applications still write
+// `voyage-3:<text>`; resumes are on `voyage-3-chunked:<text>`
+// after PR-C2 because the single-vector embedding column was
+// dropped in favour of resume_chunks.
 const CONFIG = {
   applications: {
     endpoint: 'generate-embedding',
@@ -66,6 +72,8 @@ const CONFIG = {
     selectFields: 'id,company,role,applied_at,embedding_source',
     orderBy: 'applied_at.asc',
     describe: (r) => `${r.applied_at}  ${r.company} — ${r.role}`,
+    nullsFilter: 'embedding=is.null',
+    allFilter: `or=(embedding.is.null,embedding_source.not.like.${encodeURIComponent('voyage-3:*')})`,
   },
   resumes: {
     endpoint: 'generate-resume-embedding',
@@ -73,6 +81,10 @@ const CONFIG = {
     selectFields: 'id,label,created_at,embedding_source',
     orderBy: 'created_at.asc',
     describe: (r) => `${r.created_at}  ${r.label}`,
+    // resumes.embedding was dropped in 20260519120100_resume_chunks_swap.sql.
+    // The only signal of "current pipeline" is the source marker.
+    nullsFilter: 'embedding_source=is.null',
+    allFilter: `embedding_source=not.like.${encodeURIComponent('voyage-3-chunked:*')}`,
   },
 }
 const cfg = CONFIG[table]
@@ -110,17 +122,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // longer-window limiter — observed during the day 9–10 backfill run.
 const BETWEEN_CALLS_MS = 10000
 
-// Row filter:
-//   default: embedding is null
-//   --all:   embedding is null OR embedding_source doesn't yet carry
-//            the voyage-3 marker (i.e. wasn't written by the new
-//            generate-embedding function). PostgREST OR syntax.
-//
-// "*" in PostgREST like-patterns is the SQL "%" wildcard. The pattern
+// Row filter -- per-table because resumes no longer has an
+// embedding column (PR-C2 moved resumes to chunks). "*" in
+// PostgREST like-patterns is the SQL "%" wildcard; the pattern
 // is URL-encoded so the literal colon survives the request.
-const filter = all
-  ? `or=(embedding.is.null,embedding_source.not.like.${encodeURIComponent('voyage-3:*')})`
-  : `embedding=is.null`
+const filter = all ? cfg.allFilter : cfg.nullsFilter
 
 let listUrl =
   `${URL}/rest/v1/${table}?user_id=eq.${userId}` +

@@ -95,6 +95,9 @@ export type Database = {
           last_updated_at: string
           location: string | null
           notes: string | null
+          resume_fit_computed_at: string | null
+          resume_fit_section_label: string | null
+          resume_fit_similarity: number | null
           role: string
           salary_max: number | null
           salary_min: number | null
@@ -113,6 +116,9 @@ export type Database = {
           last_updated_at?: string
           location?: string | null
           notes?: string | null
+          resume_fit_computed_at?: string | null
+          resume_fit_section_label?: string | null
+          resume_fit_similarity?: number | null
           role: string
           salary_max?: number | null
           salary_min?: number | null
@@ -131,6 +137,9 @@ export type Database = {
           last_updated_at?: string
           location?: string | null
           notes?: string | null
+          resume_fit_computed_at?: string | null
+          resume_fit_section_label?: string | null
+          resume_fit_similarity?: number | null
           role?: string
           salary_max?: number | null
           salary_min?: number | null
@@ -180,11 +189,54 @@ export type Database = {
         }
         Relationships: []
       }
+      resume_chunks: {
+        Row: {
+          created_at: string
+          embedding: string | null
+          embedding_source: string | null
+          id: string
+          ordinal: number
+          resume_id: string
+          section_label: string
+          section_text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding?: string | null
+          embedding_source?: string | null
+          id?: string
+          ordinal: number
+          resume_id: string
+          section_label: string
+          section_text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string | null
+          embedding_source?: string | null
+          id?: string
+          ordinal?: number
+          resume_id?: string
+          section_label?: string
+          section_text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resume_chunks_resume_id_fkey"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resumes: {
         Row: {
           content: string
           created_at: string
-          embedding: string | null
           embedding_source: string | null
           id: string
           is_active: boolean
@@ -195,7 +247,6 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
-          embedding?: string | null
           embedding_source?: string | null
           id?: string
           is_active?: boolean
@@ -206,7 +257,6 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
-          embedding?: string | null
           embedding_source?: string | null
           id?: string
           is_active?: boolean
@@ -291,10 +341,14 @@ export type Database = {
         }[]
       }
       resume_fit_for_application: {
-        Args: { application_id: string }
+        Args: { application_id: string; top_k?: number }
         Returns: {
+          chunk_id: string
           resume_id: string
           resume_label: string
+          section_label: string
+          section_ordinal: number
+          section_text: string
           similarity: number
         }[]
       }
@@ -308,9 +362,11 @@ export type Database = {
         }[]
       }
       score_external_job_resume: {
-        Args: { p_query: string; p_user_id: string }
+        Args: { p_query: string; p_top_k?: number; p_user_id: string }
         Returns: {
           resume_label: string
+          section_label: string
+          section_text: string
           similarity: number
         }[]
       }

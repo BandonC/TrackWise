@@ -28,6 +28,7 @@ export type ScoreResult = {
   resume: {
     similarity: number
     label: string
+    section: string
   } | null
 }
 
