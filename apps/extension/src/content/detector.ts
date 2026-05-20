@@ -361,6 +361,11 @@ function buildResumeStat(resume: ScoreResult['resume']): HTMLElement {
     sub.className = 'sub'
     sub.textContent = `vs "${resume.label}"`
     left.appendChild(sub)
+
+    const matched = document.createElement('div')
+    matched.className = 'sub'
+    matched.textContent = `matched on: ${resume.section}`
+    left.appendChild(matched)
   } else {
     const sub = document.createElement('div')
     sub.className = 'sub'
