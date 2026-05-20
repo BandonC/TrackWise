@@ -22,31 +22,31 @@
 // and a matched_application id.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { scoreFit } from "../_shared/fit-scoring.ts";
 
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_MODEL = "voyage-3";
 const EMBEDDING_DIM = 1024;
-
-const VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank";
-const VOYAGE_RERANK_MODEL = "rerank-2.5";
-const RERANK_TIMEOUT_MS = 8000;
 
 const MAX_VOYAGE_ATTEMPTS = 3;
 const BACKOFF_MS = [1000, 4000];
 const MAX_RETRY_AFTER_MS = 8000;
 
 const MAX_FIELD_LEN = 5000;
+const MAX_JD_LEN = 8000;
 
 type Body = {
   role?: unknown;
   company?: unknown;
   notes?: unknown;
+  job_description?: unknown;
 };
 
 type ParsedBody = {
   role: string;
   company: string;
   notes: string;
+  job_description: string;
 };
 
 function parseRetryAfter(header: string | null): number | null {
@@ -99,69 +99,11 @@ async function callVoyage(
   return lastRes!;
 }
 
-// Voyage rerank-2.5 cross-encoder. Given a query and N candidate
-// resume chunks, returns the index of the highest-relevance
-// candidate and its relevance score. Returns null on any failure
-// (timeout, non-2xx, malformed body) so the caller can fall back
-// to the top cosine candidate.
-async function voyageRerank(
-  voyageKey: string,
-  query: string,
-  documents: string[],
-): Promise<{ index: number; relevance_score: number } | null> {
-  if (documents.length === 0) return null;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RERANK_TIMEOUT_MS);
-  try {
-    const res = await fetch(VOYAGE_RERANK_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${voyageKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-        documents,
-        model: VOYAGE_RERANK_MODEL,
-        top_k: 1,
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error("score-external-job: rerank error", res.status, detail);
-      return null;
-    }
-    // Voyage's rerank response wraps results under `data`, not
-    // `results` (their published docs are misleading on this).
-    const body = (await res.json()) as {
-      data?: Array<{ index?: number; relevance_score?: number }>;
-    };
-    const top = body.data?.[0];
-    if (
-      !top ||
-      typeof top.index !== "number" ||
-      top.index < 0 ||
-      top.index >= documents.length ||
-      typeof top.relevance_score !== "number"
-    ) {
-      console.error("score-external-job: unexpected rerank shape", body);
-      return null;
-    }
-    return { index: top.index, relevance_score: top.relevance_score };
-  } catch (err) {
-    console.error("score-external-job: rerank request failed", err);
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 function validateString(
   value: unknown,
   field: string,
   required: boolean,
+  maxLen: number = MAX_FIELD_LEN,
 ): { ok: true; value: string } | { ok: false; reason: string } {
   if (value === undefined || value === null || value === "") {
     if (required) return { ok: false, reason: `${field} required` };
@@ -174,7 +116,7 @@ function validateString(
   if (required && trimmed === "") {
     return { ok: false, reason: `${field} required` };
   }
-  if (trimmed.length > MAX_FIELD_LEN) {
+  if (trimmed.length > maxLen) {
     return { ok: false, reason: `${field} too long` };
   }
   return { ok: true, value: trimmed };
@@ -193,12 +135,20 @@ function parseBody(
   if (!company.ok) return company;
   const notes = validateString(b.notes, "notes", false);
   if (!notes.ok) return notes;
+  const jd = validateString(
+    b.job_description,
+    "job_description",
+    false,
+    MAX_JD_LEN,
+  );
+  if (!jd.ok) return jd;
   return {
     ok: true,
     value: {
       role: role.value,
       company: company.value,
       notes: notes.value,
+      job_description: jd.value,
     },
   };
 }
@@ -233,10 +183,13 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const voyageKey = Deno.env.get("VOYAGE_API_KEY");
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!supabaseUrl || !anonKey || !serviceRoleKey || !voyageKey) {
     console.error("score-external-job: missing env config");
     return json({ error: "server misconfigured" }, 500);
   }
+  // ANTHROPIC_API_KEY is recommended but not required -- if absent
+  // the shared scoreFit will fall back to rerank then cosine.
 
   const authClient = createClient(supabaseUrl, anonKey);
   const { data: userData, error: userErr } = await authClient.auth.getUser(
@@ -257,8 +210,12 @@ Deno.serve(async (req) => {
   const parsed = parseBody(body);
   if (!parsed.ok) return json({ error: parsed.reason }, 400);
 
+  // Compose the scoring text. Include the JD body when the
+  // extension captured one (PR-D1) so cosine pre-filtering and
+  // Haiku judgment both have real posting content -- not only
+  // the role title.
   const text =
-    `${parsed.value.role} at ${parsed.value.company}. ${parsed.value.notes}`.trim();
+    `${parsed.value.role} at ${parsed.value.company}. ${parsed.value.notes}\n\n${parsed.value.job_description}`.trim();
 
   // 3. Embed via Voyage.
   const voyageRes = await callVoyage(voyageKey, text);
@@ -305,15 +262,15 @@ Deno.serve(async (req) => {
     return json({ error: "score failed" }, 500);
   }
 
-  // Resume side: cosine narrows to top-5 candidates, then
-  // rerank-2.5 picks the real winner. If rerank fails for any
-  // reason, fall back to the highest-cosine candidate so the
-  // overlay still renders.
+  // Resume side: cosine narrows to top-5 candidates, then the
+  // shared scoreFit module runs Haiku -> rerank -> cosine
+  // fallback. Same scoring algorithm as the dashboard detail
+  // page so the overlay and detail-page numbers are comparable.
   const { data: resumeRows, error: resumeErr } = await adminClient
     .rpc("score_external_job_resume", {
       p_user_id: userId,
       p_query: queryLiteral,
-      p_top_k: 5,
+      p_top_k: 10,
     });
 
   if (resumeErr) {
@@ -333,26 +290,34 @@ Deno.serve(async (req) => {
     similarity: number;
     label: string;
     section: string;
+    reasoning: string | null;
   } | null = null;
 
   if (candidates.length > 0) {
-    const rerankWinner = await voyageRerank(
+    const scored = await scoreFit({
+      query: text,
+      candidates: candidates.map((c) => ({
+        section_label: c.section_label,
+        section_text: c.section_text,
+        similarity: c.similarity,
+      })),
+      anthropicKey,
       voyageKey,
-      text,
-      candidates.map((c) => c.section_text),
-    );
-    const winner = rerankWinner
-      ? {
-          candidate: candidates[rerankWinner.index],
-          similarity: rerankWinner.relevance_score,
-        }
-      : { candidate: candidates[0], similarity: candidates[0].similarity };
+    });
 
-    resumeOut = {
-      similarity: winner.similarity,
-      label: winner.candidate.resume_label,
-      section: winner.candidate.section_label,
-    };
+    if (scored) {
+      // resume_label isn't returned by scoreFit (single resume per
+      // user in v1; the label maps 1:1 to the active resume). Pull
+      // it from the matching candidate -- all candidates share the
+      // same resume_label in the v1 single-resume model.
+      const label = candidates[0].resume_label;
+      resumeOut = {
+        similarity: scored.similarity,
+        label,
+        section: scored.section_label,
+        reasoning: scored.reasoning,
+      };
+    }
   }
 
   return json(
