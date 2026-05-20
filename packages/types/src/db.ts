@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -92,10 +92,12 @@ export type Database = {
           embedding: string | null
           embedding_source: string | null
           id: string
+          job_description: string | null
           last_updated_at: string
           location: string | null
           notes: string | null
           resume_fit_computed_at: string | null
+          resume_fit_reasoning: string | null
           resume_fit_section_label: string | null
           resume_fit_similarity: number | null
           role: string
@@ -113,10 +115,12 @@ export type Database = {
           embedding?: string | null
           embedding_source?: string | null
           id?: string
+          job_description?: string | null
           last_updated_at?: string
           location?: string | null
           notes?: string | null
           resume_fit_computed_at?: string | null
+          resume_fit_reasoning?: string | null
           resume_fit_section_label?: string | null
           resume_fit_similarity?: number | null
           role: string
@@ -134,10 +138,12 @@ export type Database = {
           embedding?: string | null
           embedding_source?: string | null
           id?: string
+          job_description?: string | null
           last_updated_at?: string
           location?: string | null
           notes?: string | null
           resume_fit_computed_at?: string | null
+          resume_fit_reasoning?: string | null
           resume_fit_section_label?: string | null
           resume_fit_similarity?: number | null
           role?: string

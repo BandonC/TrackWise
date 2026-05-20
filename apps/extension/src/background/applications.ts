@@ -21,6 +21,7 @@ export async function saveApplication(payload: ParsedJob): Promise<{ id: string 
       source_url: payload.source_url,
       source_site: payload.source_site,
       notes: payload.notes,
+      job_description: payload.job_description,
     })
     .select('id')
     .single()
