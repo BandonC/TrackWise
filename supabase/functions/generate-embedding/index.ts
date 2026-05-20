@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
   // 3. Read the row.
   const { data: app, error: readErr } = await supabase
     .from("applications")
-    .select("company, role, notes")
+    .select("company, role, notes, job_description")
     .eq("id", applicationId)
     .maybeSingle();
 
@@ -126,7 +126,14 @@ Deno.serve(async (req) => {
     return new Response("not found", { status: 404 });
   }
 
-  const text = `${app.role} at ${app.company}. ${app.notes ?? ""}`.trim();
+  // Compose the embedding source. job_description (when the
+  // extension captured one) carries the bulk of the semantic
+  // signal; role/company/notes are kept up front so they remain
+  // dominant for short JDs. Cap the JD at 8000 chars to stay
+  // well within voyage-3's 32K-token limit while keeping
+  // free-tier token spend predictable.
+  const jdSnippet = (app.job_description ?? "").slice(0, 8000);
+  const text = `${app.role} at ${app.company}. ${app.notes ?? ""}\n\n${jdSnippet}`.trim();
 
   // 4. Call Voyage AI (with retry/backoff on 429 + 5xx).
   const voyageRes = await callVoyage(voyageKey, text);

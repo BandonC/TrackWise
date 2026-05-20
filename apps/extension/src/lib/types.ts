@@ -7,12 +7,14 @@ export type ParsedJob = {
   source_url: string | null
   source_site: string | null
   notes: string | null
+  job_description: string | null
 }
 
 export type ScorePayload = {
   role: string
   company: string
   notes: string | null
+  job_description: string | null
   url: string
 }
 
@@ -29,6 +31,7 @@ export type ScoreResult = {
     similarity: number
     label: string
     section: string
+    reasoning: string | null
   } | null
 }
 

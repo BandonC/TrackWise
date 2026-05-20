@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/card'
 import { NotesForm } from '@/components/applications/notes-form'
 import { DeleteApplicationButton } from '@/components/applications/delete-application-button'
-import { rerank } from '@/lib/rerank'
 
 type PageProps = { params: Promise<{ id: string }> }
 
@@ -57,7 +56,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const { data: application, error } = await supabase
     .from('applications')
     .select(
-      'id, company, role, location, salary_min, salary_max, source_url, source_site, status, applied_at, last_updated_at, notes, embedding_source, resume_fit_similarity, resume_fit_section_label, resume_fit_computed_at',
+      'id, company, role, location, salary_min, salary_max, source_url, source_site, status, applied_at, last_updated_at, notes, job_description, embedding_source, resume_fit_similarity, resume_fit_section_label, resume_fit_reasoning, resume_fit_computed_at',
     )
     .eq('id', id)
     .maybeSingle()
@@ -106,13 +105,12 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
   // Resume-fit cache-aside. The cache lives on the application
   // row; staleness is checked by comparing computed_at to the
-  // active resume's newest chunk timestamp (no resume-side
-  // invalidation trigger -- that approach didn't scale). On miss
-  // we fetch top-5 by cosine, hand them to Voyage rerank-2.5
-  // for cross-encoder scoring, write back the winner, and
-  // render. If rerank is unreachable, fall back to the highest
-  // cosine candidate so the card still renders something
-  // sensible.
+  // active resume's newest chunk timestamp. On miss we fetch
+  // the top-5 cosine candidates and hand them to the
+  // score-resume-fit Edge Function, which runs the Haiku ->
+  // rerank -> cosine fallback chain server-side (the
+  // ANTHROPIC_API_KEY lives there, not here). Persist the
+  // result including the LLM's reasoning sentence.
   const hasEmbedding = application.embedding_source !== null
   const chunksUpdatedAt = latestChunk?.created_at ?? null
   const cacheValid =
@@ -120,7 +118,12 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     chunksUpdatedAt !== null &&
     application.resume_fit_computed_at >= chunksUpdatedAt
 
-  let fit: { similarity: number; section_label: string } | null = null
+  type Fit = {
+    similarity: number
+    section_label: string
+    reasoning: string | null
+  }
+  let fit: Fit | null = null
 
   if (anyResume && hasEmbedding && chunksUpdatedAt) {
     if (
@@ -131,43 +134,63 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       fit = {
         similarity: application.resume_fit_similarity,
         section_label: application.resume_fit_section_label,
+        reasoning: application.resume_fit_reasoning,
       }
     } else {
       const { data: candidates } = await supabase.rpc(
         'resume_fit_for_application',
-        { application_id: id, top_k: 5 },
+        { application_id: id, top_k: 10 },
       )
 
       if (candidates && candidates.length > 0) {
+        // When a JD was captured (PR-D1), include it so Haiku
+        // judges against the real posting rather than only what
+        // it can infer from the title. Cap at 4000 chars to bound
+        // per-call token spend.
+        const jdSnippet = (application.job_description ?? '').slice(0, 4000)
         const query =
-          `${application.role} at ${application.company}. ${application.notes ?? ''}`.trim()
-        const winner = await rerank(
-          query,
-          candidates.map((c) => ({
-            section_label: c.section_label,
-            section_text: c.section_text,
-          })),
-        )
+          `${application.role} at ${application.company}. ${application.notes ?? ''}\n\n${jdSnippet}`.trim()
+        const { data: scored, error: scoreErr } = await supabase.functions.invoke<{
+          similarity: number
+          section_label: string
+          reasoning: string | null
+          source: 'llm' | 'rerank' | 'cosine'
+        }>('score-resume-fit', {
+          body: {
+            query,
+            candidates: candidates.map((c) => ({
+              section_label: c.section_label,
+              section_text: c.section_text,
+              similarity: c.similarity,
+            })),
+          },
+        })
 
-        if (winner) {
+        if (scored && !scoreErr) {
           fit = {
-            similarity: winner.relevance_score,
-            section_label: winner.section_label,
+            similarity: scored.similarity,
+            section_label: scored.section_label,
+            reasoning: scored.reasoning,
           }
           await supabase
             .from('applications')
             .update({
-              resume_fit_similarity: winner.relevance_score,
-              resume_fit_section_label: winner.section_label,
+              resume_fit_similarity: scored.similarity,
+              resume_fit_section_label: scored.section_label,
+              resume_fit_reasoning: scored.reasoning,
               resume_fit_computed_at: new Date().toISOString(),
             })
             .eq('id', id)
         } else {
-          // Voyage rerank failed; fall back to highest cosine.
+          // Function unreachable; render the top cosine candidate
+          // so the card isn't empty. Don't write to cache -- a
+          // transient failure shouldn't poison subsequent loads.
+          console.error('score-resume-fit invoke failed', scoreErr)
           const best = candidates[0]
           fit = {
             similarity: best.similarity,
             section_label: best.section_label,
+            reasoning: null,
           }
         }
       }
@@ -224,6 +247,19 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           value={formatDate(application.last_updated_at)}
         />
       </section>
+
+      {application.job_description && (
+        <section className="mb-8">
+          <details className="group">
+            <summary className="mb-2 cursor-pointer font-heading text-sm font-medium text-muted-foreground hover:text-foreground">
+              Job description
+            </summary>
+            <div className="whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-4 text-sm leading-relaxed">
+              {application.job_description}
+            </div>
+          </details>
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-2 font-heading text-sm font-medium text-muted-foreground">
@@ -351,7 +387,11 @@ function ResumeFitCard({
   resumeLabel,
   hasActiveResume,
 }: {
-  fit: { similarity: number; section_label: string } | null
+  fit: {
+    similarity: number
+    section_label: string
+    reasoning: string | null
+  } | null
   resumeLabel: string | null
   hasActiveResume: boolean
 }) {
@@ -386,8 +426,8 @@ function ResumeFitCard({
 
   return (
     <Card size="sm">
-      <CardContent className="flex items-center justify-between gap-4">
-        <div>
+      <CardContent className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <div className="font-heading text-xl font-semibold tabular-nums">
             {(fit.similarity * 100).toFixed(0)}%
           </div>
@@ -397,6 +437,11 @@ function ResumeFitCard({
           <div className="text-xs text-muted-foreground">
             matched on: {fit.section_label}
           </div>
+          {fit.reasoning && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {fit.reasoning}
+            </div>
+          )}
         </div>
         <Link
           href="/resume"

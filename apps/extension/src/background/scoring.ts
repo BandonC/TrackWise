@@ -46,6 +46,7 @@ export async function scoreCurrentPage(
         role: payload.role,
         company: payload.company,
         notes: payload.notes ?? '',
+        job_description: payload.job_description ?? '',
       },
     },
   )

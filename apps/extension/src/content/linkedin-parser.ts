@@ -10,6 +10,28 @@ function textOf(selectors: string[]): string | null {
   return null
 }
 
+// JD bodies can run 5-10KB; LinkedIn occasionally embeds whole
+// company-about sections in the description container. Cap at 10K
+// so we don't ship pathologically large payloads. The downstream
+// embed/score paths re-cap at their own limits (8K for embedding
+// input, 4K for the Haiku query).
+const MAX_JD_LEN = 10000
+
+function jdOf(selectors: string[]): string | null {
+  for (const sel of selectors) {
+    const el = document.querySelector(sel)
+    // .textContent strips tags but preserves the text. LinkedIn
+    // renders the JD as nested HTML with bullets; textContent
+    // collapses it into a readable plain string.
+    const text = el?.textContent
+      ?.replace(/\s+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    if (text) return text.slice(0, MAX_JD_LEN)
+  }
+  return null
+}
+
 export const linkedinParser: Parser = {
   name: 'linkedin',
 
@@ -49,6 +71,17 @@ export const linkedinParser: Parser = {
       '.jobs-unified-top-card__bullet',
     ])
 
+    const job_description = jdOf([
+      // Current (2025+) job-details layout.
+      '#job-details',
+      '.jobs-description__content .jobs-description-content__text',
+      '.jobs-description-content__text',
+      // Older layouts that LinkedIn still serves for some URLs.
+      '.show-more-less-html__markup',
+      '.jobs-description__container',
+      '.jobs-description',
+    ])
+
     return {
       company,
       role,
@@ -58,6 +91,7 @@ export const linkedinParser: Parser = {
       source_url: window.location.href,
       source_site: 'linkedin',
       notes: null,
+      job_description,
     }
   },
 }
