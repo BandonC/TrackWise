@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { NotesForm } from '@/components/applications/notes-form'
+import { JobDescriptionForm } from '@/components/applications/job-description-form'
 import { DeleteApplicationButton } from '@/components/applications/delete-application-button'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -248,18 +249,26 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         />
       </section>
 
-      {application.job_description && (
-        <section className="mb-8">
-          <details className="group">
-            <summary className="mb-2 cursor-pointer font-heading text-sm font-medium text-muted-foreground hover:text-foreground">
-              Job description
-            </summary>
-            <div className="whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-4 text-sm leading-relaxed">
-              {application.job_description}
-            </div>
-          </details>
-        </section>
-      )}
+      <section className="mb-8">
+        <details
+          className="group"
+          open={!application.job_description}
+        >
+          <summary className="mb-2 cursor-pointer font-heading text-sm font-medium text-muted-foreground hover:text-foreground">
+            Job description
+            {!application.job_description && (
+              <span className="ml-2 text-xs font-normal">
+                (paste to improve the fit score)
+              </span>
+            )}
+          </summary>
+          <JobDescriptionForm
+            key={application.id}
+            applicationId={application.id}
+            initialJobDescription={application.job_description}
+          />
+        </details>
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-2 font-heading text-sm font-medium text-muted-foreground">
