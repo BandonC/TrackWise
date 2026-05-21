@@ -3,6 +3,31 @@ import { signInWithGoogle, signOut, getCurrentUser } from './auth'
 import { saveApplication, getApplicationCount } from './applications'
 import { scoreCurrentPage } from './scoring'
 
+// Supabase's background auto-refresh fires on a timer inside the
+// service worker. When the user is signed out (or the refresh
+// token was just cleared by signOut), the refresh attempt throws
+// "Invalid Refresh Token: Refresh Token Not Found" which bubbles
+// to chrome://extensions as a red error banner. That's noise --
+// the signed-out state is the correct state. Swallow only this
+// specific class of refresh-noise error so real errors still
+// surface to the panel.
+self.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : typeof reason === 'string'
+        ? reason
+        : ''
+  if (
+    message.includes('Refresh Token Not Found') ||
+    message.includes('refresh_token_not_found') ||
+    message.includes('Auth session missing')
+  ) {
+    event.preventDefault()
+  }
+})
+
 chrome.runtime.onMessage.addListener(
   (message: Message, sender, sendResponse: (response: MessageResponse) => void) => {
     if (!isValidSender(message, sender)) {
