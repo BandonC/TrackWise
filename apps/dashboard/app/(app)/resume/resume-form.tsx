@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { saveResume, type SaveResumeState } from '@/app/(app)/actions'
+import { ResumeUploadButtons } from '@/components/resume/upload-buttons'
 
 const initialState: SaveResumeState = { ok: false }
 
@@ -66,13 +67,17 @@ export function ResumeForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="resume-content">Content</Label>
+        <ResumeUploadButtons
+          hasContent={content.trim().length > 0}
+          onExtracted={(text) => setContent(text)}
+        />
         <Textarea
           id="resume-content"
           name="content"
           rows={20}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Paste your resume here..."
+          placeholder="Paste your resume here, or upload a PDF/DOCX above."
         />
         {state.fieldErrors?.content ? (
           <p className="text-sm text-destructive">
