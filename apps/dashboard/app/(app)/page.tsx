@@ -41,7 +41,33 @@ export default async function ApplicationsPage() {
         </div>
         <AddApplicationDialog />
       </header>
-      <KanbanBoard grouped={grouped} />
+      {data.length === 0 ? <EmptyState /> : <KanbanBoard grouped={grouped} />}
     </main>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="mx-auto mt-12 max-w-md rounded-lg border border-border/60 bg-muted/30 p-8 text-center">
+      <h2 className="mb-2 font-heading text-lg font-semibold">
+        Start tracking your applications
+      </h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Install the TrackWise Chrome extension to save jobs in one click
+        from LinkedIn and Indeed. Each save lands here automatically.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Or use{' '}
+        <span className="font-medium text-foreground">Add Job</span>{' '}
+        above to add one manually. Don&rsquo;t forget to{' '}
+        <a
+          href="/resume"
+          className="font-medium text-foreground underline-offset-2 hover:underline"
+        >
+          upload your resume
+        </a>{' '}
+        so fit scores appear on every application.
+      </p>
+    </div>
   )
 }
