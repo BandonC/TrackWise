@@ -1,5 +1,6 @@
 import type { Parser } from './parser-types'
 import type { ParsedJob } from '../lib/types'
+import { extractFormattedText } from './parser-utils'
 
 function textOf(selectors: string[]): string | null {
   for (const sel of selectors) {
@@ -19,10 +20,8 @@ const MAX_JD_LEN = 10000
 function jdOf(selectors: string[]): string | null {
   for (const sel of selectors) {
     const el = document.querySelector(sel)
-    const text = el?.textContent
-      ?.replace(/\s+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
+    if (!el) continue
+    const text = extractFormattedText(el)
     if (text) return text.slice(0, MAX_JD_LEN)
   }
   return null
@@ -33,6 +32,9 @@ export const indeedParser: Parser = {
 
   readySelector:
     '[data-testid="jobsearch-JobInfoHeader-title"], .jobsearch-JobInfoHeader-title',
+
+  jdSelector:
+    '#jobDescriptionText, [data-testid="jobsearch-JobComponent-description"]',
 
   matches(url) {
     try {

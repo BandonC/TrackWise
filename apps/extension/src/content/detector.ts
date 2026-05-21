@@ -2,6 +2,46 @@ import type { Message, MessageResponse, ScoreResult } from '../lib/types'
 import type { Parser } from './parser-types'
 import { linkedinParser } from './linkedin-parser'
 import { indeedParser } from './indeed-parser'
+import { waitForContent } from './parser-utils'
+
+// Send a message to the background worker with friendly error
+// surfacing. Two failure modes the raw API exposes badly:
+//   1. `chrome.runtime` is undefined -- happens when the extension
+//      reloaded (dev rebuild, manual refresh, or update) while the
+//      page was already open. The content script is orphaned.
+//   2. sendMessage throws "Extension context invalidated" for the
+//      same reason but from a different code path.
+// Both cases map to "reload the page", which is the actual fix.
+async function sendBackgroundMessage<T>(
+  message: Message,
+): Promise<MessageResponse<T>> {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+    return {
+      ok: false,
+      error: 'Reload this page (the extension was updated)',
+    }
+  }
+  try {
+    return (await chrome.runtime.sendMessage(message)) as MessageResponse<T>
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e)
+    if (raw.toLowerCase().includes('extension context invalidated')) {
+      return {
+        ok: false,
+        error: 'Reload this page (the extension was updated)',
+      }
+    }
+    return { ok: false, error: raw }
+  }
+}
+
+// Map common background errors to action-oriented user copy.
+// Anything we don't recognize falls through unchanged.
+function friendlyError(raw: string): string {
+  if (raw === 'Not signed in') return 'Sign in via the extension popup first'
+  if (raw === 'Forbidden sender') return 'This page is not supported'
+  return raw
+}
 
 const parsers: Parser[] = [linkedinParser, indeedParser]
 
@@ -232,12 +272,14 @@ async function handleSaveClick(parser: Parser, btn: HTMLButtonElement) {
   btn.textContent = 'Saving...'
 
   try {
+    // Absorb LinkedIn's JD lazy-load: poll the JD container up to
+    // ~3s for non-trivial content, then parse. Save still works
+    // if the deadline lapses -- we just get a thinner job_description.
+    await waitForContent(parser.jdSelector)
     const payload = parser.parse()
     const message: Message = { type: 'save_application', payload }
-    const response = (await chrome.runtime.sendMessage(message)) as MessageResponse<{
-      id: string
-    }>
-    if (!response.ok) throw new Error(response.error)
+    const response = await sendBackgroundMessage<{ id: string }>(message)
+    if (!response.ok) throw new Error(friendlyError(response.error))
     btn.className = 'success'
     btn.textContent = 'Saved'
   } catch (e) {
@@ -262,6 +304,7 @@ async function handleFitClick(
   btn.textContent = 'Checking...'
 
   try {
+    await waitForContent(parser.jdSelector)
     const parsed = parser.parse()
     if (!parsed.role || !parsed.company) {
       throw new Error("Couldn't read this listing")
@@ -276,10 +319,8 @@ async function handleFitClick(
         url: location.href,
       },
     }
-    const response = (await chrome.runtime.sendMessage(
-      message,
-    )) as MessageResponse<ScoreResult>
-    if (!response.ok) throw new Error(response.error)
+    const response = await sendBackgroundMessage<ScoreResult>(message)
+    if (!response.ok) throw new Error(friendlyError(response.error))
     renderPanel(panel, response.data)
     panel.style.display = 'block'
   } catch (e) {
