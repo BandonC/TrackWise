@@ -1,5 +1,6 @@
 import type { Parser } from './parser-types'
 import type { ParsedJob } from '../lib/types'
+import { extractFormattedText } from './parser-utils'
 
 function textOf(selectors: string[]): string | null {
   for (const sel of selectors) {
@@ -20,13 +21,8 @@ const MAX_JD_LEN = 10000
 function jdOf(selectors: string[]): string | null {
   for (const sel of selectors) {
     const el = document.querySelector(sel)
-    // .textContent strips tags but preserves the text. LinkedIn
-    // renders the JD as nested HTML with bullets; textContent
-    // collapses it into a readable plain string.
-    const text = el?.textContent
-      ?.replace(/\s+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
+    if (!el) continue
+    const text = extractFormattedText(el)
     if (text) return text.slice(0, MAX_JD_LEN)
   }
   return null
@@ -37,6 +33,8 @@ export const linkedinParser: Parser = {
 
   readySelector:
     'h1.t-24, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title',
+
+  jdSelector: '#job-details, .jobs-description-content__text',
 
   matches(url) {
     try {
