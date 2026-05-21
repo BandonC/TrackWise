@@ -29,3 +29,19 @@ export async function saveApplication(payload: ParsedJob): Promise<{ id: string 
   if (error) throw error
   return { id: data.id }
 }
+
+// Lightweight count for the popup's first-run onboarding.
+// head:true + count:exact returns just the number, no rows.
+export async function getApplicationCount(): Promise<number> {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+  if (!sessionData.session) throw new Error('Not signed in')
+
+  const { count, error } = await supabase
+    .from('applications')
+    .select('*', { count: 'exact', head: true })
+
+  if (error) throw error
+  return count ?? 0
+}
