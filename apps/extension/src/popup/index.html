@@ -43,6 +43,27 @@
         min-height: 18px;
         color: #b00;
       }
+      #onboarding {
+        margin-bottom: 12px;
+        padding: 12px;
+        background: #f5f7fb;
+        border: 1px solid #dde3ee;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #2a2f3a;
+      }
+      #onboarding strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      #onboarding ol {
+        margin: 0;
+        padding-left: 18px;
+      }
+      #onboarding li + li {
+        margin-top: 4px;
+      }
       [hidden] {
         display: none !important;
       }
@@ -56,6 +77,14 @@
     </div>
     <div id="signed-in" hidden>
       <span id="email"></span>
+      <div id="onboarding" hidden>
+        <strong>Get started</strong>
+        <ol>
+          <li>Save jobs from LinkedIn or Indeed using the page button.</li>
+          <li>Upload your resume on the dashboard for fit scores.</li>
+          <li>Track progress and analytics on the dashboard.</li>
+        </ol>
+      </div>
       <a id="dashboard-link" class="btn" target="_blank" rel="noopener">Open dashboard</a>
       <button id="sign-out-btn">Sign out</button>
     </div>

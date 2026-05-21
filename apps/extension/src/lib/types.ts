@@ -39,6 +39,7 @@ export type Message =
   | { type: 'save_application'; payload: ParsedJob }
   | { type: 'score_current_page'; payload: ScorePayload }
   | { type: 'get_recent'; limit: number }
+  | { type: 'get_application_count' }
   | { type: 'sign_in' }
   | { type: 'sign_out' }
   | { type: 'get_session' }
