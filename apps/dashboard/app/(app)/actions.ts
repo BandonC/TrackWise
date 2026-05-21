@@ -192,6 +192,16 @@ const updateNotesSchema = z.object({
   notes: notesSchema,
 })
 
+// JD cap matches generate-embedding's 8KB ingest cap. Anything
+// longer is either a copy-paste mistake or a JD that wouldn't
+// fit in the embedding source anyway.
+const jobDescriptionSchema = trimmedString(8000)
+
+const updateJobDescriptionSchema = z.object({
+  id: z.string().uuid(),
+  job_description: jobDescriptionSchema,
+})
+
 export type UpdateNotesState = {
   ok: boolean
   fieldErrors?: Record<string, string[]>
@@ -226,5 +236,47 @@ export async function updateApplicationNotes(
 
   revalidatePath(`/applications/${parsed.data.id}`)
   revalidatePath('/')
+  return { ok: true }
+}
+
+export type UpdateJobDescriptionState = {
+  ok: boolean
+  fieldErrors?: Record<string, string[]>
+  formError?: string
+}
+
+// PR-D2. Manual JD paste for applications saved before the
+// extension parser captured one (or saved via a future manual-
+// add path). The UPDATE flips applications.job_description,
+// which fires the embedding trigger (re-embed with JD in
+// source) and cascades into the fit cache via the row-local
+// invalidation trigger -- no extra client logic required.
+export async function updateApplicationJobDescription(
+  _prev: UpdateJobDescriptionState,
+  formData: FormData,
+): Promise<UpdateJobDescriptionState> {
+  const parsed = updateJobDescriptionSchema.safeParse({
+    id: formData.get('id'),
+    job_description: formData.get('job_description'),
+  })
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('applications')
+    .update({ job_description: parsed.data.job_description })
+    .eq('id', parsed.data.id)
+
+  if (error) {
+    return { ok: false, formError: error.message }
+  }
+
+  revalidatePath(`/applications/${parsed.data.id}`)
   return { ok: true }
 }
