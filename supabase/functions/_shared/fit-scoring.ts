@@ -134,6 +134,11 @@ async function scoreWithHaiku(
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: 500,
+        // Analytical scoring task with tool-enforced structured output —
+        // sampling noise just makes the same resume/job render different
+        // numbers across reloads. Anthropic recommends temp 0 for this
+        // shape of task.
+        temperature: 0,
         system: FIT_SYSTEM_PROMPT,
         messages: [{ role: "user", content: userMessage }],
         tools: [
