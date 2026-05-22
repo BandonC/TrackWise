@@ -33,7 +33,13 @@ const BACKOFF_MS = [1000, 4000];
 const MAX_RETRY_AFTER_MS = 8000;
 
 const MAX_FIELD_LEN = 5000;
-const MAX_JD_LEN = 8000;
+// Two JD caps. The embedding source gets up to 8KB (matches the
+// dashboard's generate-embedding cap -- richer Voyage signal pre-
+// filter). The Haiku query gets up to 4KB (matches the dashboard's
+// detail page) so overlay and detail scores judge against the same
+// amount of JD context.
+const MAX_JD_LEN_EMBED = 8000;
+const MAX_JD_LEN_HAIKU = 4000;
 
 type Body = {
   role?: unknown;
@@ -139,7 +145,7 @@ function parseBody(
     b.job_description,
     "job_description",
     false,
-    MAX_JD_LEN,
+    MAX_JD_LEN_EMBED,
   );
   if (!jd.ok) return jd;
   return {
@@ -210,15 +216,19 @@ Deno.serve(async (req) => {
   const parsed = parseBody(body);
   if (!parsed.ok) return json({ error: parsed.reason }, 400);
 
-  // Compose the scoring text. Include the JD body when the
-  // extension captured one (PR-D1) so cosine pre-filtering and
-  // Haiku judgment both have real posting content -- not only
-  // the role title.
-  const text =
-    `${parsed.value.role} at ${parsed.value.company}. ${parsed.value.notes}\n\n${parsed.value.job_description}`.trim();
+  // Compose the scoring texts. JD goes through two different caps:
+  // 8KB into the embedding source (matches generate-embedding), 4KB
+  // into the Haiku query (matches the dashboard detail page). Same
+  // input shape across both surfaces means overlay and detail scores
+  // are directly comparable.
+  const head = `${parsed.value.role} at ${parsed.value.company}. ${parsed.value.notes}`;
+  const jdEmbed = parsed.value.job_description.slice(0, MAX_JD_LEN_EMBED);
+  const jdHaiku = parsed.value.job_description.slice(0, MAX_JD_LEN_HAIKU);
+  const embedText = `${head}\n\n${jdEmbed}`.trim();
+  const haikuQuery = `${head}\n\n${jdHaiku}`.trim();
 
   // 3. Embed via Voyage.
-  const voyageRes = await callVoyage(voyageKey, text);
+  const voyageRes = await callVoyage(voyageKey, embedText);
   if (!voyageRes.ok) {
     const detail = await voyageRes.text().catch(() => "");
     console.error(
@@ -295,7 +305,7 @@ Deno.serve(async (req) => {
 
   if (candidates.length > 0) {
     const scored = await scoreFit({
-      query: text,
+      query: haikuQuery,
       candidates: candidates.map((c) => ({
         section_label: c.section_label,
         section_text: c.section_text,
