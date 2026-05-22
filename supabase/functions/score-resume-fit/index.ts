@@ -20,6 +20,7 @@
 //
 // Output: { similarity, section_label, reasoning, source }.
 
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import { scoreFit, type FitCandidate } from "../_shared/fit-scoring.ts";
 
 const MAX_QUERY_LEN = 5000;
@@ -107,12 +108,39 @@ Deno.serve(async (req) => {
     return json({ error: "method not allowed" }, 405);
   }
 
+  // Both keys are optional inside scoreFit -- the shared module falls
+  // back Haiku -> rerank -> cosine if a tier's key is missing. Letting
+  // a missing key fail with 500 here would mean a dashboard misconfig
+  // takes the fit card down entirely; the consistent behavior with
+  // score-external-job is to degrade rather than fail. The dashboard
+  // also has its own outer fallback (render top-cosine candidate
+  // without writing to cache) for transport-level failures.
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   const voyageKey = Deno.env.get("VOYAGE_API_KEY");
-  if (!anthropicKey) {
-    console.error("score-resume-fit: ANTHROPIC_API_KEY missing");
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    console.error("score-resume-fit: missing env config");
     return json({ error: "server misconfigured" }, 500);
   }
+
+  // Extract user id from the bearer token. The gateway has
+  // verify_jwt = true so we know the token is valid; we just need to
+  // resolve it to a user_id for rate limiting. Same pattern as
+  // score-external-job.
+  const authHeader = req.headers.get("authorization") ?? "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return json({ error: "missing bearer token" }, 401);
+  const authClient = createClient(supabaseUrl, anonKey);
+  const { data: userData, error: userErr } = await authClient.auth.getUser(
+    match[1],
+  );
+  if (userErr || !userData.user) {
+    return json({ error: "invalid session" }, 401);
+  }
+  const userId = userData.user.id;
 
   let body: unknown;
   try {
@@ -123,6 +151,25 @@ Deno.serve(async (req) => {
 
   const parsed = parseBody(body);
   if (!parsed.ok) return json({ error: parsed.reason }, 400);
+
+  // Rate limit: per-minute and per-day quotas enforced by the
+  // check_fit_score_rate_limit RPC. Raises a P0001 exception on
+  // exceedance which we map to 429.
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  const { error: rlErr } = await adminClient.rpc(
+    "check_fit_score_rate_limit",
+    { p_user_id: userId },
+  );
+  if (rlErr) {
+    if (rlErr.message?.includes("rate_limit_per_minute")) {
+      return json({ error: "rate_limit_per_minute" }, 429);
+    }
+    if (rlErr.message?.includes("rate_limit_per_day")) {
+      return json({ error: "rate_limit_per_day" }, 429);
+    }
+    console.error("score-resume-fit: rate limit rpc failed", rlErr);
+    return json({ error: "rate limit check failed" }, 500);
+  }
 
   const result = await scoreFit({
     query: parsed.query,
