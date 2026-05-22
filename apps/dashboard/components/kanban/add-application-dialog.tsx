@@ -87,6 +87,20 @@ export function AddApplicationDialog() {
               </p>
             ) : null}
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="job_description">
+              Job description{' '}
+              <span className="text-xs font-normal text-muted-foreground">
+                (optional — paste for a better fit score)
+              </span>
+            </Label>
+            <Textarea id="job_description" name="job_description" rows={5} />
+            {state.fieldErrors?.job_description ? (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.job_description.join(', ')}
+              </p>
+            ) : null}
+          </div>
           {state.formError ? (
             <p className="text-sm text-destructive">{state.formError}</p>
           ) : null}

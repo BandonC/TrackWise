@@ -72,6 +72,10 @@ const createApplicationSchema = z.object({
     .optional(),
   source_site: trimmedString(50).optional(),
   notes: notesSchema.optional(),
+  // Same 8KB cap as updateApplicationJobDescription -- matches the
+  // generate-embedding ingest cap so manual-add saves produce
+  // embeddings shaped identically to extension saves.
+  job_description: trimmedString(8000).optional(),
 })
 
 export type CreateApplicationState = {
@@ -91,6 +95,7 @@ export async function createApplication(
     source_url: formData.get('source_url'),
     source_site: formData.get('source_site'),
     notes: formData.get('notes'),
+    job_description: formData.get('job_description'),
   })
 
   if (!parsed.success) {
@@ -114,6 +119,7 @@ export async function createApplication(
     source_url: parsed.data.source_url ?? null,
     source_site: parsed.data.source_site ?? 'manual',
     notes: parsed.data.notes ?? null,
+    job_description: parsed.data.job_description ?? null,
   })
 
   if (error) {
