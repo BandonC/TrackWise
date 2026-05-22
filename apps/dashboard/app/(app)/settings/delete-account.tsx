@@ -49,7 +49,11 @@ export function DeleteAccount() {
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="confirm-delete">
-            Type <span className="font-mono">{CONFIRM_PHRASE}</span> to confirm.
+            Type{' '}
+            <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-mono font-semibold text-destructive">
+              {CONFIRM_PHRASE}
+            </span>{' '}
+            to confirm.
           </Label>
           <Input
             id="confirm-delete"
