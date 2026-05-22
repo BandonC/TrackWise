@@ -156,6 +156,10 @@ For backend work (migrations, Edge Functions), see [`supabase/CLAUDE.md`](./supa
 - Resume files (PDF/DOCX) are parsed in the browser; only the extracted text reaches the server. The original file is never uploaded.
 - Extension requests only `storage`, `activeTab`, `identity`, and host permissions scoped to LinkedIn and Indeed job pages — no `<all_urls>`, no `tabs`.
 
+## Known followups
+
+- **Next.js 16 middleware deprecation.** The `apps/dashboard/middleware.ts` convention is being renamed to `proxy.ts` ([upgrade notes](https://nextjs.org/docs/messages/middleware-to-proxy)). Emits a build warning today; still works. To migrate before a future Next major removes it.
+
 ## License
 
 [MIT](./LICENSE) © Brandon Chong
