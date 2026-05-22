@@ -180,7 +180,7 @@ function injectButton(parser: Parser) {
       color: #0f172a;
       font: 13px system-ui, -apple-system, sans-serif;
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
-      min-width: 240px;
+      min-width: 320px;
       position: relative;
     }
     .panel .close {
@@ -213,11 +213,18 @@ function injectButton(parser: Parser) {
       justify-content: space-between;
       gap: 12px;
       padding: 6px 0;
-      border-bottom: 1px solid #f1f5f9;
     }
-    .stat:last-child { border-bottom: none; }
+    .stat + .stat {
+      border-top: 2px solid #e2e8f0;
+    }
     .stat .label { color: #475569; font-size: 12px; }
     .stat .sub { color: #94a3b8; font-size: 11px; display: block; margin-top: 2px; }
+    .stat .sub.reasoning {
+      margin-top: 6px;
+      color: #475569;
+      font-style: italic;
+      line-height: 1.4;
+    }
     .stat .value {
       font-weight: 600;
       font-variant-numeric: tabular-nums;
@@ -231,9 +238,10 @@ function injectButton(parser: Parser) {
     .panel .footer {
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid #f1f5f9;
+      border-top: 2px solid #e2e8f0;
       color: #94a3b8;
       font-size: 10px;
+      line-height: 1.4;
     }
   `
   shadow.appendChild(style)
@@ -355,7 +363,14 @@ function renderPanel(panel: HTMLElement, result: ScoreResult) {
 
   const footer = document.createElement('div')
   footer.className = 'footer'
-  footer.textContent = 'Cached for 24h. Click again to refresh.'
+  const disclaimer = document.createElement('div')
+  disclaimer.textContent =
+    'Estimated from your resume and the job. Section and reasoning are more reliable than the score.'
+  const cacheNote = document.createElement('div')
+  cacheNote.style.marginTop = '4px'
+  cacheNote.textContent = 'Cached for 24h.'
+  footer.appendChild(disclaimer)
+  footer.appendChild(cacheNote)
   panel.appendChild(footer)
 }
 
@@ -408,6 +423,16 @@ function buildResumeStat(resume: ScoreResult['resume']): HTMLElement {
     matched.className = 'sub'
     matched.textContent = `matched on: ${resume.section}`
     left.appendChild(matched)
+
+    // The one-sentence reasoning from the Haiku scoring tier. The
+    // dashboard surfaces this prominently; the overlay used to drop
+    // it on the floor. Same surface, same actionable feedback.
+    if (resume.reasoning) {
+      const reasoning = document.createElement('div')
+      reasoning.className = 'sub reasoning'
+      reasoning.textContent = resume.reasoning
+      left.appendChild(reasoning)
+    }
   } else {
     const sub = document.createElement('div')
     sub.className = 'sub'
