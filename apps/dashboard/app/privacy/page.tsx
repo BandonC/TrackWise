@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'How TrackWise collects, stores, and uses your data.',
 }
 
-const EFFECTIVE_DATE = 'May 15, 2026'
+const EFFECTIVE_DATE = 'May 21, 2026'
 const CONTACT_EMAIL = 'brandonjchong@gmail.com'
 
 export default function PrivacyPage() {
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     <main className="mx-auto max-w-2xl px-6 py-16 text-foreground">
       <header className="mb-10">
         <Link
-          href="/login"
+          href="/"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           ← Back
@@ -44,6 +44,17 @@ export default function PrivacyPage() {
             <strong>Job application data you save</strong>: company, role,
             location, salary range, source URL, source site, status, applied
             date, and any notes you add.
+          </li>
+          <li>
+            <strong>Job description text</strong> extracted by the Chrome
+            extension from the job posting at the moment you click Save.
+            Stored alongside the application so the dashboard can render it
+            and use it to compute a resume-fit score.
+          </li>
+          <li>
+            <strong>Resume text</strong>, if you paste it into the dashboard
+            or upload a PDF/DOCX (file text is extracted in your browser; only
+            the text is sent to the server, never the original file).
           </li>
           <li>
             <strong>Status changes</strong> you make to your applications,
@@ -91,10 +102,12 @@ export default function PrivacyPage() {
             email address and a unique account identifier.
           </li>
           <li>
-            <strong>Voyage AI</strong> — used to compute a vector embedding
-            of the role title, company name, and notes from each application
-            you save, so that the dashboard can show similar applications.
-            We do not send your email or any other identifier. See the{' '}
+            <strong>Voyage AI</strong> — used to compute vector embeddings of
+            (a) each saved application&apos;s role, company, notes, and
+            captured job description, and (b) sections of your resume. These
+            embeddings power the &ldquo;similar applications&rdquo; view and
+            the resume-fit score. We do not send your email or any other
+            identifier. See the{' '}
             <a
               href="https://www.voyageai.com/privacy"
               className="underline hover:text-foreground"
@@ -102,6 +115,25 @@ export default function PrivacyPage() {
               rel="noreferrer"
             >
               Voyage AI privacy policy
+            </a>
+            .
+          </li>
+          <li>
+            <strong>Anthropic</strong> — used to generate the resume-fit
+            score and one-sentence explanation shown on each application&apos;s
+            detail page and in the Chrome extension overlay. When a score is
+            computed, we send the role title, company, your notes, the
+            captured job description, and the top-matching sections of your
+            resume. We do not send your email or any other identifier. Per
+            Anthropic&apos;s API terms, prompts are not used to train
+            models. See the{' '}
+            <a
+              href="https://www.anthropic.com/legal/privacy"
+              className="underline hover:text-foreground"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Anthropic privacy policy
             </a>
             .
           </li>
