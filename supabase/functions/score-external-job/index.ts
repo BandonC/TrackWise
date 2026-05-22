@@ -216,6 +216,25 @@ Deno.serve(async (req) => {
   const parsed = parseBody(body);
   if (!parsed.ok) return json({ error: parsed.reason }, 400);
 
+  // 2b. Rate limit before any LLM/embedding work. Per-minute and
+  // per-day quotas keep a misbehaving account bounded to a finite
+  // Anthropic spend. Maps the RPC's P0001 exception to a 429.
+  const adminClientForRateLimit = createClient(supabaseUrl, serviceRoleKey);
+  const { error: rlErr } = await adminClientForRateLimit.rpc(
+    "check_fit_score_rate_limit",
+    { p_user_id: userId },
+  );
+  if (rlErr) {
+    if (rlErr.message?.includes("rate_limit_per_minute")) {
+      return json({ error: "rate_limit_per_minute" }, 429);
+    }
+    if (rlErr.message?.includes("rate_limit_per_day")) {
+      return json({ error: "rate_limit_per_day" }, 429);
+    }
+    console.error("score-external-job: rate limit rpc failed", rlErr);
+    return json({ error: "rate limit check failed" }, 500);
+  }
+
   // Compose the scoring texts. JD goes through two different caps:
   // 8KB into the embedding source (matches generate-embedding), 4KB
   // into the Haiku query (matches the dashboard detail page). Same
