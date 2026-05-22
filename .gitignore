@@ -71,9 +71,6 @@ web_modules/
 .env.local
 .env.*.local
 !.env.example
-# Extension production env (Vercel URL only, no secrets) -- checked
-# in so the CWS-bound build is reproducible from a fresh clone.
-!apps/extension/.env.production
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -158,6 +155,9 @@ supabase/.env
 
 # Chrome extension build output
 apps/extension/dist/
+
+# Chrome extension packaged for CWS upload
+apps/extension/*.zip
 
 # Turborepo
 .turbo/
