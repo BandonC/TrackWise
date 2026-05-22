@@ -42,11 +42,17 @@ function formatSalary(min: number | null, max: number | null): string {
   return fmt((min ?? max) as number)
 }
 
+// Floor tuned post-PR-D1: embeddings now include JD body, which
+// produces lower cosine across pairs than the pre-D1 thin embeddings.
+// 0.50 keeps genuinely-related-but-different-domain matches visible
+// while still hiding unrelated noise. Anything the RPC's top-5 cap
+// returns above this floor renders; nothing below 0.50 does.
 function similarityBand(
   similarity: number,
 ): { label: string; visible: boolean } {
   if (similarity >= 0.85) return { label: 'Very Similar', visible: true }
   if (similarity >= 0.7) return { label: 'Similar', visible: true }
+  if (similarity >= 0.5) return { label: 'Loose match', visible: true }
   return { label: '', visible: false }
 }
 
@@ -435,29 +441,35 @@ function ResumeFitCard({
 
   return (
     <Card size="sm">
-      <CardContent className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="font-heading text-xl font-semibold tabular-nums">
-            {(fit.similarity * 100).toFixed(0)}%
-          </div>
-          <div className="text-xs text-muted-foreground">
-            vs &ldquo;{resumeLabel ?? '—'}&rdquo;
-          </div>
-          <div className="text-xs text-muted-foreground">
-            matched on: {fit.section_label}
-          </div>
-          {fit.reasoning && (
-            <div className="mt-2 text-xs text-muted-foreground">
-              {fit.reasoning}
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="font-heading text-xl font-semibold tabular-nums">
+              {(fit.similarity * 100).toFixed(0)}%
             </div>
-          )}
+            <div className="text-xs text-muted-foreground">
+              vs &ldquo;{resumeLabel ?? '—'}&rdquo;
+            </div>
+            <div className="text-xs text-muted-foreground">
+              matched on: {fit.section_label}
+            </div>
+            {fit.reasoning && (
+              <div className="mt-2 text-xs text-muted-foreground">
+                {fit.reasoning}
+              </div>
+            )}
+          </div>
+          <Link
+            href="/resume"
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Edit resume
+          </Link>
         </div>
-        <Link
-          href="/resume"
-          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        >
-          Edit resume
-        </Link>
+        <p className="-mx-3 border-t-2 border-border px-3 pt-2 text-[11px] leading-snug text-muted-foreground">
+          Estimated from your resume and the job. The matched section and
+          reasoning are more reliable than the absolute number.
+        </p>
       </CardContent>
     </Card>
   )
