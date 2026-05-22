@@ -17,9 +17,21 @@ const COLUMNS = [
 
 type Row = { [K in (typeof COLUMNS)[number]]: string | number | null }
 
+// Cells starting with =, +, -, or @ are interpreted as formulas when
+// the CSV is opened in Excel / Google Sheets, which is an injection
+// vector if the cell content came from third-party input (the
+// extension parses notes/JD from LinkedIn/Indeed DOM). Prefixing such
+// cells with a single quote makes the spreadsheet render the literal
+// text. The leading quote is stripped on re-import, so round-tripping
+// stays clean. Standard OWASP CSV-injection mitigation.
+const FORMULA_PREFIX = /^[=+\-@\t\r]/
+
 function csvEscape(value: string | number | null): string {
   if (value === null) return ''
-  const s = String(value)
+  let s = String(value)
+  if (FORMULA_PREFIX.test(s)) {
+    s = `'${s}`
+  }
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`
   }
