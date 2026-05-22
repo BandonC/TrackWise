@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { clearFitCache } from './scoring'
 
 export type AuthUser = { id: string; email: string | null }
 
@@ -33,6 +34,9 @@ export async function signInWithGoogle(): Promise<AuthUser> {
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut()
   if (error) throw error
+  // Tidy up the just-signed-out user's cached scores so storage doesn't
+  // accumulate orphan entries across sign-in/sign-out cycles.
+  await clearFitCache()
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
