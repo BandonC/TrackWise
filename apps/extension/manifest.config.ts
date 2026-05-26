@@ -14,7 +14,7 @@ export default defineManifest({
   version: pkg.version,
   description: 'Track job applications and learn from your search.',
   icons: ICONS,
-  permissions: ['storage', 'activeTab', 'identity'],
+  permissions: ['storage', 'identity'],
   host_permissions: [
     'https://www.linkedin.com/jobs/*',
     'https://*.indeed.com/viewjob*',

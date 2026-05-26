@@ -102,7 +102,7 @@ The popup must feel instant and the content script must not slow down LinkedIn.
 
 ## Permissions discipline
 
-- Request only what's used. Currently: `storage`, `activeTab`. Host permissions limited to LinkedIn job pages and Indeed view-job pages.
+- Request only what's used. Currently: `storage`, `identity`. Host permissions limited to LinkedIn job pages and Indeed view-job pages.
 - **Never request `<all_urls>`, `tabs`, `cookies`, or `webRequest`.** These trigger heavy review scrutiny and the user-facing install warning becomes much scarier.
 - If a feature would need a new permission, **ask first.** I'd rather drop the feature than expand permissions.
 
