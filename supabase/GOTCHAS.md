@@ -106,6 +106,15 @@ the function via `supabase.auth.getUser(token)`. Same security
 guarantee, plus OPTIONS now flows through to our CORS handler. This is
 how `score-external-job` is configured.
 
+Counter-example: `score-resume-fit` is user-facing too but is called
+server-to-server from the dashboard's Server Component (which forwards
+the user's session JWT), never cross-origin from a browser. It has no
+CORS preflight, so it keeps `verify_jwt = true` (the gateway default,
+no `--no-verify-jwt`) and still resolves the user via
+`supabase.auth.getUser(token)` for rate limiting. "User-facing" alone
+doesn't imply `--no-verify-jwt` — only a cross-origin browser caller
+does.
+
 ## SQL editor runs as `postgres`, not as a user
 
 `auth.uid()` returns `null` in the SQL editor. Any insert into a user-data

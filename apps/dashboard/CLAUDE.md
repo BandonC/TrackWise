@@ -27,12 +27,12 @@ If any of these are missing when you need them, ask.
 ```
 app/
   (auth)/
-    login/page.tsx
-    signup/page.tsx
+    login/page.tsx           # Google OAuth sign-in (no email/password signup).
   (app)/                     # Auth-guarded by middleware.
     page.tsx                 # Kanban board, default landing.
     analytics/page.tsx
     applications/[id]/page.tsx
+    resume/page.tsx          # Resume paste/upload + chunked embedding.
     settings/page.tsx
   layout.tsx
   middleware.ts              # Redirects unauthenticated users from (app) to /login.

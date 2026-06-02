@@ -155,7 +155,7 @@ For backend work (migrations, Edge Functions), see [`supabase/CLAUDE.md`](./supa
 - Service-role key is server-only (`import 'server-only'` on the admin client). The browser bundle never sees it.
 - Voyage AI and Anthropic keys live as Supabase Edge Function secrets, never in client code or the browser bundle. The dashboard reaches the Anthropic API only through the `score-resume-fit` Edge Function.
 - Resume files (PDF/DOCX) are parsed in the browser; only the extracted text reaches the server. The original file is never uploaded.
-- Extension requests only `storage`, `activeTab`, `identity`, and host permissions scoped to LinkedIn and Indeed job pages — no `<all_urls>`, no `tabs`.
+- Extension requests only `storage`, `identity`, and host permissions scoped to LinkedIn and Indeed job pages — no `<all_urls>`, no `tabs`.
 
 ## Known followups
 

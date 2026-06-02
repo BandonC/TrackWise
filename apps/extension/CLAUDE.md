@@ -179,11 +179,15 @@ Extension development is the most error-prone part of this project because most 
 - Manifest V3 has changed since its initial rollout — `chrome.runtime.onInstalled`, action API, declarativeNetRequest, and host permission UX have all evolved. If you're applying a pattern from a 2022 tutorial, flag the uncertainty.
 - @crxjs/vite-plugin has had several major versions. Check the actual installed version before generating config.
 
-## Pending features
+## Popup scope
 
-The popup currently only handles sign-in / sign-out and a link to the
-dashboard. The recent-5 list and manual Add Job form described in
-TrackWise.md §5.1 are deferred until after the save flow lands.
+The popup is intentionally minimal: sign-in / sign-out, the signed-in
+email, a link to the dashboard, and a first-run onboarding hint shown
+only when the user has zero saved applications. Saving happens via the
+injected button on the job page (content script → service worker), not
+in the popup, so the recent-5 list and manual Add Job form sketched in
+TrackWise.md §5.1 were not built — the dashboard's Add Job dialog covers
+manual entry. Don't add them back without asking.
 
 ## What "done" looks like for an extension task
 

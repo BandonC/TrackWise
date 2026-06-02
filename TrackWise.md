@@ -295,16 +295,18 @@ Manifest:
   "name": "TrackWise",
   "version": "1.0.0",
   "description": "Track job applications and learn from your search.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "identity"],
   "host_permissions": [
     "https://www.linkedin.com/jobs/*",
-    "https://www.indeed.com/viewjob*"
+    "https://*.indeed.com/viewjob*",
+    "https://*.indeed.com/jobs*"
   ],
   "background": { "service_worker": "background.js" },
   "content_scripts": [{
     "matches": [
       "https://www.linkedin.com/jobs/*",
-      "https://www.indeed.com/viewjob*"
+      "https://*.indeed.com/viewjob*",
+      "https://*.indeed.com/jobs*"
     ],
     "js": ["content.js"]
   }],
@@ -319,12 +321,12 @@ Next.js App Router with two route groups: `(auth)` for unauthenticated routes an
 ```
 app/
   (auth)/
-    login/page.tsx
-    signup/page.tsx
+    login/page.tsx               # Google OAuth sign-in (no email/password signup)
   (app)/
     page.tsx                     # Kanban board (default landing)
     analytics/page.tsx           # Analytics dashboard
     applications/[id]/page.tsx   # Detail view + similar jobs
+    resume/page.tsx              # Resume paste/upload + chunked embedding
     settings/page.tsx
   layout.tsx
   middleware.ts                  # Auth guard
@@ -429,8 +431,6 @@ The Anthropic API key lives only as a Supabase secret (`ANTHROPIC_API_KEY`). It 
 
 > **Known limitation (resolved by PR-C3 + PR-D1) — detail-page fit was bounded by stored application content.** Pre-C3, the rerank query was built as `${role} at ${company}. ${notes ?? ''}` — ~20-50 characters for default extension saves, leaving rerank unable to do more than surface keyword matching. PR-C3 (Haiku) removed that ceiling by reasoning about the role from its title plus candidate resume sections. PR-D1 went further by populating `applications.job_description` from the extension parsers at save time and threading it through both the embedding flow (sharper cosine pre-filter) and the Haiku query (real JD content). Applications saved pre-D1 retain their thin embeddings until edited; the user can re-trigger the chain by editing the row. The other PR-D tracks (D2 manual paste UX, D3 overlay-to-app persistence) remain available if specific gaps emerge but are no longer required for scoring quality.
 
-> **Known limitation — burst rate-limiting.** Voyage AI's free tier rejects bursts of concurrent requests (observed at ~3+ simultaneous calls during the day-6 backfill). Single-application saves are unaffected because the trigger only fires once per insert, but any batch path (initial backfill, future bulk import, account-merge) must throttle. **v2 candidate:** detect 429 in the Edge Function and either back-off-retry once in-place or write a non-2xx that pg_net's response queue can pick up via a retry worker. Not in v1 because v1 has no batch path the user will hit.
-
 **Edge Function:**
 
 ```typescript
@@ -527,7 +527,7 @@ The Haiku scoring prompt includes user-controlled content (resume chunk text, jo
 
 ### 6.4 Extension permissions
 
-The manifest requests only `storage` and `activeTab`, plus host permissions limited to LinkedIn job pages and Indeed view-job pages. No `<all_urls>`, no `tabs`, no broad permissions. This minimizes the user-facing install warning and Chrome Web Store review friction.
+The manifest requests only `storage` and `identity`, plus host permissions limited to LinkedIn job pages and Indeed view-job pages. No `<all_urls>`, no `tabs`, no broad permissions. This minimizes the user-facing install warning and Chrome Web Store review friction.
 
 ### 6.5 Privacy policy
 
@@ -548,11 +548,16 @@ trackwise/
     extension/
   packages/
     types/
-    db/
   supabase/
     functions/
+      _shared/                 # fit-scoring.ts, shared by the scoring functions
       generate-embedding/
+      generate-resume-embedding/
+      cluster-embeddings/
+      score-resume-fit/        # dashboard detail-page fit scoring
+      score-external-job/      # extension overlay fit scoring
     migrations/
+  scripts/                     # backfill-embeddings.mjs and other one-shots
   CLAUDE.md
   TrackWise.md
   README.md

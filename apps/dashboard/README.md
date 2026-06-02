@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TrackWise Dashboard
 
-## Getting Started
+Next.js 16 (App Router) web dashboard for TrackWise — the Kanban board,
+analytics, application detail/resume-fit, and settings surfaces. Deploys to
+Vercel from `main`.
 
-First, run the development server:
+For product context and architecture see [`../../TrackWise.md`](../../TrackWise.md).
+For the rules on working in this app see [`CLAUDE.md`](./CLAUDE.md).
+
+## Getting started
+
+Requires Node 24 (`.nvmrc`) and pnpm 10. From the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example apps/dashboard/.env.local   # then fill in the Supabase values
+pnpm --filter dashboard dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Environment variables (`NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`) are documented in
+the root `.env.example`. Server-only secrets and Edge Function secrets are
+never read here — see the root README's Security section.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Auth
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Google OAuth only (no email/password signup). Unauthenticated users hitting
+any `(app)` route are redirected to `/login` by `middleware.ts`.
