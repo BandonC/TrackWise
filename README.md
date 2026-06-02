@@ -1,6 +1,7 @@
 # TrackWise
+Access here: trackwise-lac-nu.vercel.app
 
-A job application tracker built around analytics, not logging.
+A job application tracker built around analytics, not logging. 
 
 Most trackers treat the application list as the primary artifact and bolt analytics on as an afterthought. TrackWise inverts that: response rate, time-to-response, source effectiveness, and semantic clustering are the primary view; the list is supporting infrastructure.
 
