@@ -1,0 +1,34 @@
+# Keeps the free-tier Supabase project from pausing (7-day inactivity
+# threshold). Calls the no-op ping() RPC so Postgres registers activity.
+# Twice weekly (Mon + Thu) leaves a 3-4 day margin against cron drift.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL       https://<ref>.supabase.co
+#   SUPABASE_ANON_KEY  the anon (publishable) key
+#
+# Note: GitHub disables scheduled workflows after ~60 days without repo
+# activity. GitHub emails a warning first; re-enable from the Actions tab.
+name: Keep Supabase Alive
+on:
+  schedule:
+    - cron: '0 12 * * 1,4'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          response=$(curl -sS -w '\n%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "status=$status body=$body"
+          if [ "$status" != "200" ]; then
+            echo "ping failed" >&2
+            exit 1
+          fi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

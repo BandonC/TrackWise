@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -195,6 +195,21 @@ export type Database = {
         }
         Relationships: []
       }
+      fit_score_call_log: {
+        Row: {
+          called_at: string
+          user_id: string
+        }
+        Insert: {
+          called_at?: string
+          user_id: string
+        }
+        Update: {
+          called_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resume_chunks: {
         Row: {
           created_at: string
@@ -337,6 +352,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_fit_score_rate_limit: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       find_similar_applications: {
         Args: { match_count?: number; target_id: string }
         Returns: {
@@ -346,6 +365,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      ping: { Args: never; Returns: string }
       resume_fit_for_application: {
         Args: { application_id: string; top_k?: number }
         Returns: {
