@@ -41,7 +41,6 @@ const env = Object.fromEntries(
 const URL = env.SUPABASE_URL
 const ANON = env.SUPABASE_ANON_KEY
 const SVC = env.SUPABASE_SERVICE_ROLE_KEY
-const EDGE_SECRET = env.EDGE_FUNCTION_SECRET // optional; cluster tests skipped if absent
 if (!URL || !ANON || !SVC) {
   console.error('SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY required')
   process.exit(2)
@@ -388,63 +387,65 @@ try {
   assert(otherS.length === 0 && (vsA.body ?? []).length >= 3, `rows=${vsA.body?.length}`)
 
   step('clustering: seed deterministic embeddings (bypass Voyage)')
-  if (!EDGE_SECRET) {
-    fail('skipped — EDGE_FUNCTION_SECRET not in test/.env.local')
-  } else {
-    // Bypass Voyage entirely so this test isn't held hostage by free-tier
-    // rate limits. Real Voyage coverage lives in find_similar_applications
-    // above; here we only care about our cluster function's behaviour.
-    // Two groups: A1, A2 along axis 0; A3, A4 along axis 1.
-    const fakes = [
-      { id: appA1Id, vec: fakeUnitVector(0, 1) },
-      { id: appA2Id, vec: fakeUnitVector(0, 2) },
-      { id: appA3Id, vec: fakeUnitVector(1, 3) },
-      { id: appA4Id, vec: fakeUnitVector(1, 4) },
-    ]
-    let seeded = 0
-    for (const f of fakes) {
-      const res = await serviceUpdate(`applications?id=eq.${f.id}`, {
-        embedding: JSON.stringify(f.vec),
-        embedding_source: 'e2e-test-fake',
-      })
-      if (res.status === 200) seeded++
-    }
-    assert(seeded === 4, `seeded=${seeded}/4`)
-
-    step('clustering: invoke cluster-embeddings for user A')
-    const clusterRes = await fetch(`${URL}/functions/v1/cluster-embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': EDGE_SECRET },
-      body: JSON.stringify({ userId: createdA.id }),
+  // Bypass Voyage entirely so this test isn't held hostage by free-tier
+  // rate limits. Real Voyage coverage lives in find_similar_applications
+  // above; here we only care about our cluster function's behaviour.
+  // Two groups: A1, A2 along axis 0; A3, A4 along axis 1.
+  const fakes = [
+    { id: appA1Id, vec: fakeUnitVector(0, 1) },
+    { id: appA2Id, vec: fakeUnitVector(0, 2) },
+    { id: appA3Id, vec: fakeUnitVector(1, 3) },
+    { id: appA4Id, vec: fakeUnitVector(1, 4) },
+  ]
+  let seeded = 0
+  for (const f of fakes) {
+    const res = await serviceUpdate(`applications?id=eq.${f.id}`, {
+      embedding: JSON.stringify(f.vec),
+      embedding_source: 'e2e-test-fake',
     })
-    const clusterBody = await clusterRes.json().catch(() => null)
-    assert(
-      clusterRes.status === 200 && clusterBody?.status === 'ok' && clusterBody?.assigned === 4,
-      `status=${clusterRes.status} body=${JSON.stringify(clusterBody)}`,
-    )
-
-    step("clustering: user A sees their own clusters via the view")
-    const aClusters = await cliA.select(
-      'v_response_rate_by_cluster?select=cluster_id,label,total,user_id',
-    )
-    const aOwn = (aClusters.body ?? []).filter((r) => r.user_id === createdA.id)
-    assert(
-      aOwn.length >= 1 && aOwn.reduce((s, r) => s + (r.total ?? 0), 0) === 4,
-      `A clusters=${aOwn.length} total_assigned=${aOwn.reduce((s, r) => s + (r.total ?? 0), 0)}`,
-    )
-
-    step("clustering: RLS — user B sees zero of user A's clusters")
-    const bClusters = await cliB.select('clusters?select=id,user_id')
-    const leakedC = (bClusters.body ?? []).filter((r) => r.user_id === createdA.id)
-    assert(leakedC.length === 0, `B sees ${bClusters.body?.length} cluster rows; leaked=${leakedC.length}`)
-
-    step("clustering: applications.cluster_id populated for A")
-    const aApps = await cliA.select(
-      'applications?select=id,cluster_id&embedding=not.is.null',
-    )
-    const withCluster = (aApps.body ?? []).filter((r) => r.cluster_id !== null).length
-    assert(withCluster === 4, `with_cluster=${withCluster}/4`)
+    if (res.status === 200) seeded++
   }
+  assert(seeded === 4, `seeded=${seeded}/4`)
+
+  step('clustering: invoke cluster-embeddings as user A (JWT auth)')
+  const clusterRes = await fetch(`${URL}/functions/v1/cluster-embeddings`, {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: `Bearer ${sessA.access_token}` },
+  })
+  const clusterBody = await clusterRes.json().catch(() => null)
+  assert(
+    clusterRes.status === 200 && clusterBody?.status === 'ok' && clusterBody?.assigned === 4,
+    `status=${clusterRes.status} body=${JSON.stringify(clusterBody)}`,
+  )
+
+  step('clustering: cluster-embeddings rejects calls without a user JWT')
+  const noUserRes = await fetch(`${URL}/functions/v1/cluster-embeddings`, {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+  })
+  assert(noUserRes.status === 401, `status=${noUserRes.status}`)
+
+  step("clustering: user A sees their own clusters via the view")
+  const aClusters = await cliA.select(
+    'v_response_rate_by_cluster?select=cluster_id,label,total,user_id',
+  )
+  const aOwn = (aClusters.body ?? []).filter((r) => r.user_id === createdA.id)
+  assert(
+    aOwn.length >= 1 && aOwn.reduce((s, r) => s + (r.total ?? 0), 0) === 4,
+    `A clusters=${aOwn.length} total_assigned=${aOwn.reduce((s, r) => s + (r.total ?? 0), 0)}`,
+  )
+
+  step("clustering: RLS — user B sees zero of user A's clusters")
+  const bClusters = await cliB.select('clusters?select=id,user_id')
+  const leakedC = (bClusters.body ?? []).filter((r) => r.user_id === createdA.id)
+  assert(leakedC.length === 0, `B sees ${bClusters.body?.length} cluster rows; leaked=${leakedC.length}`)
+
+  step("clustering: applications.cluster_id populated for A")
+  const aApps = await cliA.select(
+    'applications?select=id,cluster_id&embedding=not.is.null',
+  )
+  const withCluster = (aApps.body ?? []).filter((r) => r.cluster_id !== null).length
+  assert(withCluster === 4, `with_cluster=${withCluster}/4`)
 
   step('embedding column never sent in default applications select')
   const sel = await cliA.select(`applications?id=eq.${appA1Id}&select=*`)

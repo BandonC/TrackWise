@@ -14,36 +14,17 @@ export async function recomputeClusters(): Promise<RecomputeResult> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const secret = process.env.EDGE_FUNCTION_SECRET
-  if (!baseUrl || !secret) {
-    console.error('recomputeClusters: missing env config')
-    return { ok: false, error: 'misconfigured' }
-  }
-
-  let res: Response
-  try {
-    res = await fetch(`${baseUrl}/functions/v1/cluster-embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-secret': secret,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    })
-  } catch (e) {
-    console.error('recomputeClusters: fetch failed', e)
-    return { ok: false, error: 'network' }
-  }
-
-  if (!res.ok) {
-    console.error('recomputeClusters: edge function status', res.status)
-    return { ok: false, error: `edge_${res.status}` }
-  }
-
-  const payload = (await res.json()) as
+  // invoke() forwards the user's session JWT; the function derives the
+  // user from it, so no body is needed.
+  const { data: payload, error } = await supabase.functions.invoke<
     | { status: 'ok'; clusters: number; assigned: number }
     | { status: 'skipped'; reason: 'not_enough_data'; n: number }
+  >('cluster-embeddings')
+
+  if (error || !payload) {
+    console.error('recomputeClusters: invoke failed', error)
+    return { ok: false, error: 'edge_error' }
+  }
 
   revalidatePath('/analytics')
 

@@ -14,7 +14,7 @@ Copy `.env.local.example` to `test/.env.local` and fill in:
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
-EDGE_FUNCTION_SECRET=...   # optional; cluster recompute tests skip if absent
+EDGE_FUNCTION_SECRET=...   # optional; only used by scripts/backfill-embeddings.mjs
 ```
 
 `test/.env.local` is gitignored by the root `.gitignore` (`.env.*.local`).

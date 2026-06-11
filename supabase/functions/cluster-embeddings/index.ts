@@ -4,11 +4,13 @@
 // applications. Invoked on-demand from the dashboard server action;
 // not from a trigger.
 //
-// Authenticated via the shared EDGE_FUNCTION_SECRET (same secret as
-// generate-embedding — both are internal-only callers).
+// Authenticated as the calling user: deployed with verify_jwt (the
+// platform gateway checks the JWT signature), and the user id is
+// resolved from the token via auth.getUser() — never from the body,
+// so a caller can only recompute their own clusters.
 //
 // Flow:
-//   1. Verify secret + validate userId.
+//   1. Resolve the calling user from the Authorization JWT.
 //   2. Fetch (id, company, embedding) for the user's embedded rows.
 //   3. If fewer than MIN_ROWS_FOR_CLUSTERING, wipe clusters and return.
 //   4. Run K-means (k = suggestK(n)).
@@ -21,9 +23,6 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { kmeans, suggestK } from "./kmeans.ts";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MIN_ROWS_FOR_CLUSTERING = 4;
 const TOP_COMPANIES_IN_LABEL = 3;
@@ -59,37 +58,32 @@ function buildLabel(companies: string[]): string {
 }
 
 Deno.serve(async (req) => {
-  // 1. Verify shared secret.
-  const expected = Deno.env.get("EDGE_FUNCTION_SECRET");
-  const provided = req.headers.get("x-internal-secret");
-  if (!expected || provided !== expected) {
-    return new Response("unauthorized", { status: 401 });
-  }
-
-  // 2. Parse + validate body.
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return new Response("invalid json", { status: 400 });
-  }
-  const userId =
-    body && typeof body === "object" && "userId" in body
-      ? (body as Record<string, unknown>).userId
-      : undefined;
-  if (typeof userId !== "string" || !UUID_RE.test(userId)) {
-    return new Response("invalid userId", { status: 400 });
-  }
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("cluster-embeddings: missing env config");
     return new Response("server misconfigured", { status: 500 });
   }
+
+  // 1. Resolve the calling user from the JWT. The gateway has already
+  //    verified the signature; getUser() maps the token to a real user
+  //    and rejects anon/service tokens.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token) {
+    return new Response("unauthorized", { status: 401 });
+  }
+  const authClient = createClient(supabaseUrl, anonKey);
+  const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+  if (userErr || !userData.user) {
+    return new Response("unauthorized", { status: 401 });
+  }
+  const userId = userData.user.id;
+
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // 3. Fetch embedded rows.
+  // 2. Fetch embedded rows.
   const { data: rows, error: readErr } = await supabase
     .from("applications")
     .select("id, company, embedding")
@@ -125,7 +119,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 4. Cluster.
+  // 3. Cluster.
   const k = suggestK(embedded.length);
   const { assignments } = kmeans(embedded.map((e) => e.vector), k);
 
@@ -139,7 +133,7 @@ Deno.serve(async (req) => {
     byCluster.set(c, bucket);
   }
 
-  // 5. Insert new cluster rows.
+  // 4. Insert new cluster rows.
   const inserts = [...byCluster.values()].map((b) => ({
     user_id: userId,
     label: buildLabel(b.companies),
@@ -155,7 +149,7 @@ Deno.serve(async (req) => {
     return new Response("insert failed", { status: 500 });
   }
 
-  // 6. Update each application's cluster_id.
+  // 5. Update each application's cluster_id.
   const buckets = [...byCluster.values()];
   for (let i = 0; i < buckets.length; i++) {
     const clusterId = inserted[i].id;
