@@ -25,4 +25,5 @@ never read here — see the root README's Security section.
 ## Auth
 
 Google OAuth only (no email/password signup). Unauthenticated users hitting
-any `(app)` route are redirected to `/login` by `middleware.ts`.
+any `(app)` route are redirected to `/login` by `proxy.ts` (the Next.js 16
+rename of `middleware.ts`).

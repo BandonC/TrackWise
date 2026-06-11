@@ -28,14 +28,14 @@ If any of these are missing when you need them, ask.
 app/
   (auth)/
     login/page.tsx           # Google OAuth sign-in (no email/password signup).
-  (app)/                     # Auth-guarded by middleware.
+  (app)/                     # Auth-guarded by the proxy.
     page.tsx                 # Kanban board, default landing.
     analytics/page.tsx
     applications/[id]/page.tsx
     resume/page.tsx          # Resume paste/upload + chunked embedding.
     settings/page.tsx
   layout.tsx
-  middleware.ts              # Redirects unauthenticated users from (app) to /login.
+  proxy.ts                   # Next.js 16 rename of middleware.ts. Redirects unauthenticated users from (app) to /login.
 ```
 
 Route groups (`(auth)`, `(app)`) are for organization, not URL segments. Don't change them without asking.
@@ -54,7 +54,7 @@ There are **three** clients, each used in different places. Don't mix them up.
 
 - **Server client** (`lib/supabase/server.ts`) — use in server components, route handlers, server actions. Reads cookies for the user's session.
 - **Browser client** (`lib/supabase/client.ts`) — use in client components.
-- **Middleware client** (`lib/supabase/middleware.ts`) — use only inside `middleware.ts` for the auth guard. Refreshes the session cookie.
+- **Middleware client** (`lib/supabase/middleware.ts`) — use only inside `proxy.ts` (the Next.js 16 rename of `middleware.ts`) for the auth guard. Refreshes the session cookie.
 
 Both the server and middleware clients use `@supabase/ssr`. If you reach for `createClient` from `@supabase/supabase-js` directly outside of those three files, stop and ask.
 
@@ -147,7 +147,7 @@ Patterns I've seen go wrong specifically with Next.js dashboards. Read before wr
 
 ### Routing
 
-- **Don't put auth checks in pages.** The middleware handles it for the `(app)` group. Pages can assume the user is authenticated.
+- **Don't put auth checks in pages.** The proxy (`proxy.ts`) handles it for the `(app)` group. Pages can assume the user is authenticated.
 - **Don't hardcode `localhost:3000`** in fetch calls or links. Use relative URLs or read from `NEXT_PUBLIC_SITE_URL` (and add it to `.env.example` if needed).
 - **Don't use `next/link` with `legacyBehavior`** — that's gone. Just `<Link href="...">text</Link>`.
 
