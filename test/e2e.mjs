@@ -387,6 +387,10 @@ try {
   assert(otherS.length === 0 && (vsA.body ?? []).length >= 3, `rows=${vsA.body?.length}`)
 
   step('clustering: seed deterministic embeddings (bypass Voyage)')
+  // Capture last_updated_at first so we can assert below that this
+  // machine write (system columns only) does not bump it.
+  const preSeed = await cliA.select(`applications?id=eq.${appA1Id}&select=last_updated_at`)
+  const preSeedTs = preSeed.body?.[0]?.last_updated_at
   // Bypass Voyage entirely so this test isn't held hostage by free-tier
   // rate limits. Real Voyage coverage lives in find_similar_applications
   // above; here we only care about our cluster function's behaviour.
@@ -406,6 +410,13 @@ try {
     if (res.status === 200) seeded++
   }
   assert(seeded === 4, `seeded=${seeded}/4`)
+
+  step('machine write (embedding seed) does not bump last_updated_at')
+  const postSeed = await cliA.select(`applications?id=eq.${appA1Id}&select=last_updated_at`)
+  assert(
+    postSeed.body?.[0]?.last_updated_at === preSeedTs,
+    `${preSeedTs} -> ${postSeed.body?.[0]?.last_updated_at}`,
+  )
 
   step('clustering: invoke cluster-embeddings as user A (JWT auth)')
   const clusterRes = await fetch(`${URL}/functions/v1/cluster-embeddings`, {
