@@ -7,7 +7,7 @@ Most trackers treat the application list as the primary artifact and bolt analyt
 
 ![TrackWise Kanban board](./docs/screenshots/01-kanban.png)
 
-> **Status:** Completed. Dashboard live on Vercel; Chrome extension build ready for Web Store submission. See [Privacy Policy](https://trackwise-lac-nu.vercel.app/privacy).
+> **Status:** Completed. Dashboard live on Vercel; Chrome extension published on the [Chrome Web Store](https://chromewebstore.google.com/detail/trackwise/ljmiflnipemagmaihpfnmpmbdbjehenm) (unlisted — installable via that link). See [Privacy Policy](https://trackwise-lac-nu.vercel.app/privacy).
 
 ## Why this exists
 
