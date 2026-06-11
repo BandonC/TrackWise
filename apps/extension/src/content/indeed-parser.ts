@@ -48,6 +48,17 @@ export const indeedParser: Parser = {
     }
   },
 
+  jobKey(url) {
+    try {
+      const u = new URL(url)
+      if (u.hostname !== 'indeed.com' && !u.hostname.endsWith('.indeed.com')) return null
+      const id = u.searchParams.get('jk') ?? u.searchParams.get('vjk')
+      return id ? `indeed:${id}` : null
+    } catch {
+      return null
+    }
+  },
+
   parse(): ParsedJob {
     const rawRole = textOf([
       '[data-testid="jobsearch-JobInfoHeader-title"]',

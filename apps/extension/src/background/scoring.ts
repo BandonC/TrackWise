@@ -6,19 +6,25 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24h
 // the same Chrome profile cannot return A's cached scores. The history
 // match in particular contains A's application IDs, which would resolve
 // to nothing for B -- a real cross-account leak before this change.
+//
+// The job part of the key is the parser-derived job_key when available
+// (stable across search-page query-param churn), falling back to the
+// full href. The fallback is deliberately NOT query-stripped: on
+// search pages the path is identical for every job, so stripping
+// would collapse distinct jobs into one cache entry.
 export const CACHE_PREFIX = 'fit:'
 
-function cacheKey(userId: string, url: string): string {
-  return `${CACHE_PREFIX}${userId}:${url}`
+function cacheKey(userId: string, jobKey: string): string {
+  return `${CACHE_PREFIX}${userId}:${jobKey}`
 }
 
 type CacheEntry = { savedAt: number; result: ScoreResult }
 
 async function readCache(
   userId: string,
-  url: string,
+  jobKey: string,
 ): Promise<ScoreResult | null> {
-  const key = cacheKey(userId, url)
+  const key = cacheKey(userId, jobKey)
   const stored = await chrome.storage.local.get(key)
   const entry = stored[key] as CacheEntry | undefined
   if (!entry) return null
@@ -31,10 +37,10 @@ async function readCache(
 
 async function writeCache(
   userId: string,
-  url: string,
+  jobKey: string,
   result: ScoreResult,
 ): Promise<void> {
-  const key = cacheKey(userId, url)
+  const key = cacheKey(userId, jobKey)
   const entry: CacheEntry = { savedAt: Date.now(), result }
   await chrome.storage.local.set({ [key]: entry })
 }
@@ -63,7 +69,8 @@ export async function scoreCurrentPage(
   if (!sessionData.session) throw new Error('Not signed in')
   const userId = sessionData.session.user.id
 
-  const cached = await readCache(userId, payload.url)
+  const jobKey = payload.job_key ?? payload.url
+  const cached = await readCache(userId, jobKey)
   if (cached) return cached
 
   const { data, error } = await supabase.functions.invoke<ScoreResult>(
@@ -81,6 +88,6 @@ export async function scoreCurrentPage(
   if (error) throw error
   if (!data) throw new Error('Empty response')
 
-  await writeCache(userId, payload.url, data)
+  await writeCache(userId, jobKey, data)
   return data
 }

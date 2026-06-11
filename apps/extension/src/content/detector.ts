@@ -325,6 +325,7 @@ async function handleFitClick(
         notes: parsed.notes,
         job_description: parsed.job_description,
         url: location.href,
+        job_key: parser.jobKey(location.href),
       },
     }
     const response = await sendBackgroundMessage<ScoreResult>(message)

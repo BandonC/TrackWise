@@ -48,6 +48,22 @@ export const linkedinParser: Parser = {
     }
   },
 
+  jobKey(url) {
+    try {
+      const u = new URL(url)
+      if (u.hostname !== 'www.linkedin.com') return null
+      const viewMatch = u.pathname.match(/^\/jobs\/view\/(\d+)/)
+      if (viewMatch) return `linkedin:${viewMatch[1]}`
+      const currentJobId = u.searchParams.get('currentJobId')
+      if (currentJobId && /^\d+$/.test(currentJobId)) {
+        return `linkedin:${currentJobId}`
+      }
+      return null
+    } catch {
+      return null
+    }
+  },
+
   parse(): ParsedJob {
     const role = textOf([
       'h1.t-24',

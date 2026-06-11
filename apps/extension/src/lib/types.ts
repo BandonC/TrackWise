@@ -16,6 +16,9 @@ export type ScorePayload = {
   notes: string | null
   job_description: string | null
   url: string
+  // Parser-derived stable job id (see Parser.jobKey). Null when the
+  // parser couldn't extract one; the fit cache then keys on url.
+  job_key: string | null
 }
 
 export type ScoreResult = {
