@@ -195,7 +195,9 @@ async function scoreWithHaiku(
     if (
       !input ||
       typeof input.score !== "number" ||
+      !Number.isFinite(input.score) ||
       typeof input.best_section_index !== "number" ||
+      !Number.isInteger(input.best_section_index) ||
       typeof input.reasoning !== "string"
     ) {
       console.error("scoreWithHaiku: missing/invalid tool_use", body);
@@ -208,7 +210,9 @@ async function scoreWithHaiku(
       return null;
     }
 
-    const score = Math.max(0, Math.min(100, input.score));
+    // Round in case the model ignores the integer schema; NaN/Infinity
+    // are already rejected above, so this can't produce NaN.
+    const score = Math.round(Math.max(0, Math.min(100, input.score)));
     return {
       similarity: score / 100,
       section_label: candidates[idx].section_label,
