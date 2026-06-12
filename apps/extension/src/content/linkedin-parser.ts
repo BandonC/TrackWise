@@ -31,6 +31,10 @@ function jdOf(selectors: string[]): string | null {
 export const linkedinParser: Parser = {
   name: 'linkedin',
 
+  // 80px now collides with the detail pane's top-card controls
+  // (insight pills + expand chevron); 150 clears them.
+  buttonTopPx: 150,
+
   readySelector:
     'h1.t-24, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title',
 

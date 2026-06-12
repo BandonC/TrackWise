@@ -80,6 +80,10 @@ function removeButton() {
 const BUTTON_TOP_PX = 80
 const BUTTON_GAP_PX = 12
 
+// Set per-injection from the matched parser (buttonTopPx override);
+// module-level so the resize handler can re-position without it.
+let currentButtonTop = BUTTON_TOP_PX
+
 function getContentRightEdge(): number | null {
   const candidates = [
     '.scaffold-layout__main',
@@ -96,7 +100,7 @@ function getContentRightEdge(): number | null {
 
 function positionButton(wrapper: HTMLElement) {
   const contentRight = getContentRightEdge()
-  wrapper.style.top = `${BUTTON_TOP_PX}px`
+  wrapper.style.top = `${currentButtonTop}px`
   wrapper.style.bottom = 'auto'
 
   if (contentRight !== null) {
@@ -125,6 +129,7 @@ function injectButton(parser: Parser) {
     position: 'fixed',
     zIndex: '2147483647',
   })
+  currentButtonTop = parser.buttonTopPx ?? BUTTON_TOP_PX
   positionButton(wrapper)
 
   const shadow = wrapper.attachShadow({ mode: 'closed' })
@@ -136,6 +141,11 @@ function injectButton(parser: Parser) {
       flex-direction: column;
       gap: 8px;
       align-items: stretch;
+      /* Cap the stack: under the viewport-right fallback anchor the
+         available width is the whole viewport, and without a cap the
+         panel grows to its longest unwrapped text line (Indeed). */
+      width: max-content;
+      max-width: 380px;
     }
     button {
       font: 500 14px system-ui, -apple-system, sans-serif;

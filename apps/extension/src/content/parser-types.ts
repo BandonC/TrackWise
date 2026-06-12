@@ -2,6 +2,10 @@ import type { ParsedJob } from '../lib/types'
 
 export type Parser = {
   name: string
+  // Viewport offset for the injected button stack. Defaults to 80px
+  // in the detector; override when the site's detail-pane header
+  // occupies that band (LinkedIn grew into it in mid-2026).
+  buttonTopPx?: number
   // Selector that resolves once the page shell has rendered.
   // The detector waits for this before injecting buttons.
   readySelector: string
