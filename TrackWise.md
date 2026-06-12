@@ -252,6 +252,14 @@ A status-change trigger keeps the events log consistent without coupling event c
 
 ```sql
 create or replace function log_status_change() returns trigger as $$
+declare
+  -- Machine-written columns (embedding write-back, fit-score cache,
+  -- cluster recompute) must not reset the staleness signal.
+  system_cols constant text[] := array[
+    'embedding', 'embedding_source', 'cluster_id',
+    'resume_fit_similarity', 'resume_fit_section_label',
+    'resume_fit_reasoning', 'resume_fit_computed_at', 'last_updated_at'
+  ];
 begin
   if old.status is distinct from new.status then
     insert into application_events
@@ -259,7 +267,9 @@ begin
     values
       (new.id, new.user_id, 'status_change', old.status, new.status);
   end if;
-  new.last_updated_at := now();
+  if (to_jsonb(old) - system_cols) is distinct from (to_jsonb(new) - system_cols) then
+    new.last_updated_at := now();
+  end if;
   return new;
 end;
 $$ language plpgsql;
@@ -268,6 +278,8 @@ create trigger on_status_change
   before update on applications
   for each row execute function log_status_change();
 ```
+
+`last_updated_at` bumps only when a user-facing column actually changed (migration `20260611212828`); before that guard, every machine write silently reset the kanban's stale indicators.
 
 A second trigger fires on insert to record a 'created' event and to invoke the embedding generation Edge Function asynchronously via pg_net.
 
@@ -316,7 +328,7 @@ Manifest:
 
 ### 5.2 Dashboard routing
 
-Next.js App Router with two route groups: `(auth)` for unauthenticated routes and `(app)` for authenticated routes. Middleware enforces authentication on the `(app)` group.
+Next.js App Router with two route groups: `(auth)` for unauthenticated routes and `(app)` for authenticated routes. The proxy (`proxy.ts`, Next.js 16's rename of the middleware convention) enforces authentication on the `(app)` group.
 
 ```
 app/
@@ -329,7 +341,7 @@ app/
     resume/page.tsx              # Resume paste/upload + chunked embedding
     settings/page.tsx
   layout.tsx
-  middleware.ts                  # Auth guard
+  proxy.ts                       # Auth guard (Next.js 16 rename of middleware.ts)
 ```
 
 ### 5.3 Kanban board
@@ -519,6 +531,7 @@ RLS is the primary mechanism preventing cross-user data exposure. Every table, v
 - Anthropic API key: stored as a Supabase Edge Function secret (`ANTHROPIC_API_KEY`), never in the dashboard `.env` or browser bundle. The dashboard reaches it only via the `score-resume-fit` Edge Function.
 - Supabase service role key: used only inside Edge Functions, never exposed to clients.
 - Supabase anon (publishable) key: safe to ship in extension and dashboard because RLS gates everything.
+- `EDGE_FUNCTION_SECRET`: shared `x-internal-secret` header for the pg_net-triggered functions only (`generate-embedding`, `generate-resume-embedding`). User-invoked functions (`cluster-embeddings`, `score-resume-fit`, `score-external-job`) instead authenticate the caller's JWT and derive the user id server-side via `auth.getUser()` — never from the request body.
 - No secrets committed to the repository. `.env.local` files are gitignored.
 
 ### 6.6 LLM prompt injection (PR-C3)
@@ -532,6 +545,16 @@ The manifest requests only `storage` and `identity`, plus host permissions limit
 ### 6.5 Privacy policy
 
 A privacy policy hosted at `/privacy` on the dashboard, linked from the Chrome Web Store listing. States what data is collected (job information saved by the user, email for authentication), where it is stored (Supabase), that it is not sold or shared, and how users can delete their account and data.
+
+### 6.7 Input hardening (migration `20260611214013`)
+
+RLS scopes rows per user but puts no bound on what a signed-in token can write straight through PostgREST. Three cheap layers close that:
+
+- **Length CHECKs** on every client-writable free-text column (applications: company/role/location 200, source_url 2000, source_site 50, notes 5000, job_description 10000; resumes: label 100, content 50000).
+- **Per-user quotas** via `BEFORE INSERT` triggers: applications ≤ 5000, resumes ≤ 20.
+- **`resume_chunks` client writes revoked** — only the service-role `generate-resume-embedding` function writes chunks; `authenticated` keeps SELECT.
+
+Accepted residuals, documented in the migration header: no quota on `application_events` (bounded in practice by the applications quota; the event triggers run `security invoker` so the INSERT grant must stay), and no CHECKs on the dormant `salary_min`/`salary_max` columns (no write path exists).
 
 ---
 
@@ -579,26 +602,9 @@ Managed via the Supabase CLI. Each schema change is a numbered SQL file in `supa
 
 ### 7.5 Keep-alive
 
-Supabase pauses free-tier projects after seven days of inactivity. A weekly GitHub Action runs a no-op query to keep the project warm:
+Supabase pauses free-tier projects after seven days of inactivity (this bit once: the project paused on 2026-06-10 before the workflow existed). `.github/workflows/keep-alive.yml` now calls the no-op `ping()` RPC (migration `20260610232754` — a constant SQL function granted to `anon`, since `anon` has no table grants) twice weekly, Mondays and Thursdays at noon UTC, leaving a 3–4 day margin against cron drift. The job fails visibly on any non-200 response. Requires repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
-```yaml
-# .github/workflows/keep-alive.yml
-name: Keep Supabase Alive
-on:
-  schedule:
-    - cron: '0 12 * * 1'  # Mondays at noon UTC
-  workflow_dispatch:
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          curl -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
-            -H "apikey: $SUPABASE_ANON_KEY"
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-```
+Caveat: GitHub auto-disables scheduled workflows after ~60 days without repo activity (it emails a warning first); re-enable from the Actions tab.
 
 ---
 
@@ -653,7 +659,7 @@ Features previously called "near-term" have been pulled into v1 (days 8–11, se
 |---|---|---|---|
 | LinkedIn DOM changes break parser | High | Medium | Multiple fallback selectors; manual entry always available; parser fails gracefully |
 | Chrome Web Store review rejection | Medium | Low | Narrow permissions; specific permission justifications; privacy policy in place before submission |
-| Supabase project pausing | Medium | Medium | Weekly GitHub Action ping; documented wake-up steps in README |
+| Supabase project pausing | Medium | Medium | Twice-weekly GitHub Action ping (see §7.5); restoring a paused project requires the Supabase dashboard |
 | Voyage API rate limits or downtime | Low | Low | Embeddings are fire-and-forget; nightly retry job for failed embeddings |
 | Manifest V3 service worker termination losing state | High | Low | All state persisted to chrome.storage.local; worker is stateless |
 | RLS policy misconfiguration exposing data | Low | High | Tested with second account during development; policies reviewed before launch |
@@ -683,6 +689,10 @@ Lightweight decision log. Each entry is the choice made and the reason in one or
 - **Extension captures job-description body into a dedicated column** (PR-D1, 2026-05-20). PR-C3 (Haiku scoring) had already lifted the dashboard's per-application fit out of the input-poverty trap by reasoning about the role from its title alone, but the score quality was still bounded at the cosine pre-filter step: thin application embedding → noisy top-K candidate selection → Haiku might never see the most relevant resume section. PR-D1 fixes that at the source by populating `applications.job_description text` from the LinkedIn and Indeed parsers at save time. Caps applied at three layers: 10KB at the parser (defense against pathological pages), 8KB when concatenated into the embedding source (free-tier token budget), and 4KB when included in the Haiku scoring query (per-call cost). The embedding trigger (`on_application_updated_embed`) now also watches `job_description`, so editing it re-fires the whole chain; the existing row-local fit-cache invalidation handles the rest. As a side benefit, the dashboard detail page renders the captured JD in a collapsible section so the user can read it without leaving the dashboard. Verified end-to-end: a Snowflake SWE save with a 581-char JD produced a 72% fit score with Haiku citing actual JD requirements ("scalable, testable code design", "Node.js/React and relational databases" matching "Snowflake's core requirements") — feedback that's impossible without the JD in context. Trade-offs and known limits: parser selectors are tied to LinkedIn/Indeed DOM and will break when those sites restructure (mitigation: multi-selector fallback in both parsers); a save click that lands before LinkedIn finishes lazy-loading the JD body captures only the section header (workaround: refresh + wait for visible content before saving — possible future polish: parser-level wait-for-content guard). Applications saved pre-D1 keep their thin embeddings until edited; we did not backfill. The deliberately-not-pursued PR-D options (D2 manual paste UX, D3 overlay-to-app persistence, server-side re-scraping of source URLs) remain documented for the same reasons as before — D2/D3 are narrow value-adds that solve subsets of what D1 already covers; URL re-scraping is blocked by LinkedIn/Indeed anti-bot enforcement and ToS regardless of how cleverly it's implemented.
 - **Chrome extension auth via `chrome.identity.launchWebAuthFlow`**, not the Supabase SDK's default browser flow. The default flow doesn't work cleanly in an extension popup context.
 - **Supabase pausing handled via GitHub Action**, not manual dashboard pings. Visible in the repo; serves as a small DevOps demonstration.
+- **`cluster-embeddings` moved from shared-secret to user-JWT auth** (2026-06-11). The original design authenticated via `x-internal-secret` and took `userId` from the request body — meaning anyone holding the secret could recompute any user's clusters. Now deployed with `verify_jwt`; the function resolves the user via `auth.getUser()` on the Authorization token, and the dashboard calls it through `supabase.functions.invoke()`, which forwards the session JWT. `EDGE_FUNCTION_SECRET` remains only for the pg_net-triggered embedding functions, which have no calling user.
+- **`last_updated_at` bumps only on user-facing changes** (2026-06-11). The status-change trigger previously refreshed it on every update, so machine writes (embedding write-back, fit-score cache on detail view, cluster recompute) silently reset the kanban's stale indicators. The trigger now diffs OLD/NEW as jsonb with system columns removed. New machine-written columns must be added to the trigger's `system_cols` list.
+- **Per-user write bounds on top of RLS** (2026-06-11). Length CHECKs on all client-writable text columns, insert quotas (applications ≤ 5000, resumes ≤ 20), and `resume_chunks` client writes revoked — see §6.7. RLS isolates users from each other; these bound what a hostile or buggy client can do to its own account's storage.
+- **Extension fit cache keyed on parser-derived job id, not URL** (2026-06-12, v1.0.2). LinkedIn/Indeed search-page URLs churn unrelated query params while showing the same posting, so URL keying re-scored the same job per variant. Parsers expose `jobKey(url)` (`linkedin:<id>` / `indeed:<jk>`); the background falls back to the full href when no id extracts — deliberately not query-stripped, since search-page paths are identical across jobs.
 
 ---
 

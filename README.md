@@ -1,5 +1,5 @@
 # TrackWise
-### Access here: [trackwise-lac-nu.vercel.app](https://trackwise-lac-nu.vercel.app)
+### Access here: [Chrome Web Store](https://chromewebstore.google.com/detail/trackwise/ljmiflnipemagmaihpfnmpmbdbjehenm)
 
 A job application tracker built around analytics, not logging. 
 
@@ -23,7 +23,7 @@ Existing trackers (Huntr, Teal, Simplify) treat the application list as the arti
 ### Capture
 - **Chrome extension** (Manifest V3) — detects job postings on LinkedIn (`/jobs/*`) and Indeed (`/viewjob*`, `/jobs*`) and saves them with one click.
 - **Job description capture** — the parser pulls the full JD body at save time, stored alongside the application so the embedding and fit-score paths have real posting content to judge against.
-- **"Check fit" overlay** — alongside Save, a Check-fit button shows how the current page matches your history and your resume without leaving the site. Scores are cached for 24h per URL.
+- **"Check fit" overlay** — alongside Save, a Check-fit button shows how the current page matches your history and your resume without leaving the site. Scores are cached for 24h per job posting.
 
 ### Track
 - **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators.
@@ -156,10 +156,6 @@ For backend work (migrations, Edge Functions), see [`supabase/CLAUDE.md`](./supa
 - Voyage AI and Anthropic keys live as Supabase Edge Function secrets, never in client code or the browser bundle. The dashboard reaches the Anthropic API only through the `score-resume-fit` Edge Function.
 - Resume files (PDF/DOCX) are parsed in the browser; only the extracted text reaches the server. The original file is never uploaded.
 - Extension requests only `storage`, `identity`, and host permissions scoped to LinkedIn and Indeed job pages — no `<all_urls>`, no `tabs`.
-
-## Known followups
-
-- **Next.js 16 middleware deprecation.** The `apps/dashboard/middleware.ts` convention is being renamed to `proxy.ts` ([upgrade notes](https://nextjs.org/docs/messages/middleware-to-proxy)). Emits a build warning today; still works. To migrate before a future Next major removes it.
 
 ## License
 

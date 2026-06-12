@@ -166,5 +166,9 @@ apps/extension/*.zip
 scripts/seed-*.sql
 anon-key.txt
 
+# GitHub wiki source pages. Published to the separate <repo>.wiki.git
+# repository, not this one.
+wiki/
+
 # Deno test cache; imports are already pinned in the test files.
 deno.lock
