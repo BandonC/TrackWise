@@ -172,3 +172,6 @@ wiki/
 
 # Deno test cache; imports are already pinned in the test files.
 deno.lock
+
+# Claude Code personal settings (rewritten constantly as permissions are approved)
+.claude/settings.local.json
