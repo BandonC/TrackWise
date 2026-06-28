@@ -1,6 +1,8 @@
 # Keeps the free-tier Supabase project from pausing (7-day inactivity
 # threshold). Calls the no-op ping() RPC so Postgres registers activity.
-# Twice weekly (Mon + Thu) leaves a 3-4 day margin against cron drift.
+# Daily at noon UTC: against the 7-day pause window this leaves ~6
+# days of slack, so several consecutive failed runs won't pause the
+# project. (Public repo -> unlimited Actions minutes, so daily is free.)
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_URL       https://<ref>.supabase.co
@@ -11,7 +13,7 @@
 name: Keep Supabase Alive
 on:
   schedule:
-    - cron: '0 12 * * 1,4'
+    - cron: '0 12 * * *'
   workflow_dispatch:
 jobs:
   ping:
