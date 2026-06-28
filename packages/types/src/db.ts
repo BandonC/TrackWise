@@ -210,6 +210,21 @@ export type Database = {
         }
         Relationships: []
       }
+      keepalive: {
+        Row: {
+          id: boolean
+          last_ping: string
+        }
+        Insert: {
+          id?: boolean
+          last_ping?: string
+        }
+        Update: {
+          id?: boolean
+          last_ping?: string
+        }
+        Relationships: []
+      }
       resume_chunks: {
         Row: {
           created_at: string
