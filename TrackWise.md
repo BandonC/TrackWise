@@ -602,7 +602,9 @@ Managed via the Supabase CLI. Each schema change is a numbered SQL file in `supa
 
 ### 7.5 Keep-alive
 
-Supabase pauses free-tier projects after seven days of inactivity (this bit once: the project paused on 2026-06-10 before the workflow existed). `.github/workflows/keep-alive.yml` now calls the no-op `ping()` RPC (migration `20260610232754` — a constant SQL function granted to `anon`, since `anon` has no table grants) twice weekly, Mondays and Thursdays at noon UTC, leaving a 3–4 day margin against cron drift. The job fails visibly on any non-200 response. Requires repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+Supabase pauses free-tier projects after seven days of inactivity, tracked against *database activity* specifically. This bit twice: first on 2026-06-10 before the workflow existed, then again on 2026-06-22 despite a green keep-alive run four days earlier — the original `ping()` (migration `20260610232754`) was a constant SQL function (`select 'ok'`) that touched no table, and a constant function did not reliably register as database activity. Migration `20260628120000` replaced it with a `ping()` that performs a real write: it bumps `last_ping` on a singleton `keepalive` table (one row, RLS enabled with no policies so it's unreachable through the Data API; `ping()` is `security definer` with a locked `search_path`, so `anon` can call it without any table grant). `.github/workflows/keep-alive.yml` calls this RPC daily at noon UTC — against the 7-day window that leaves ~6 days of slack, so several consecutive failed runs won't pause the project (the repo is public, so daily costs nothing in Actions minutes). The job fails visibly on any non-200 response. Requires repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+
+Once a project *is* paused the keep-alive can't recover it — the host returns NXDOMAIN, so the Action's curl fails too. Restoring requires logging into Supabase Studio (90-day window; data and config return intact).
 
 Caveat: GitHub auto-disables scheduled workflows after ~60 days without repo activity (it emails a warning first); re-enable from the Actions tab.
 
