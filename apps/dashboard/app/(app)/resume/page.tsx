@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/server'
 import { ResumeForm } from './resume-form'
 
@@ -36,28 +38,41 @@ export default async function ResumePage() {
   return (
     <main className="mx-auto w-full max-w-2xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Resume</h1>
+        <h1 className="font-heading text-2xl font-semibold">Resume</h1>
         <p className="text-sm text-muted-foreground">
           Paste your resume as plain text. We embed it once and use it to
           score how well each saved job matches your background.
         </p>
       </header>
 
-      <ResumeForm
-        initialLabel={resume?.label ?? ''}
-        initialContent={resume?.content ?? ''}
-      />
+      <Card>
+        <CardContent>
+          <ResumeForm
+            initialLabel={resume?.label ?? ''}
+            initialContent={resume?.content ?? ''}
+          />
+        </CardContent>
+      </Card>
 
       {resume ? (
-        <section className="space-y-1 text-xs text-muted-foreground">
-          <p>Last updated: {formatDateTime(resume.updated_at)}</p>
-          <p>
-            Embedding:{' '}
-            {hasEmbedding
-              ? 'ready'
-              : 'computing... refresh in a moment'}
-          </p>
-        </section>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium text-foreground',
+              hasEmbedding ? 'bg-status-offer/10' : 'bg-status-interview/10',
+            )}
+          >
+            <span
+              className={cn(
+                'size-1.5 rounded-full',
+                hasEmbedding ? 'bg-status-offer' : 'bg-status-interview',
+              )}
+            />
+            {hasEmbedding ? 'Embedded' : 'Processing'}
+          </span>
+          <span>Updated {formatDateTime(resume.updated_at)}</span>
+          {!hasEmbedding ? <span>Refresh in a moment.</span> : null}
+        </div>
       ) : null}
     </main>
   )
