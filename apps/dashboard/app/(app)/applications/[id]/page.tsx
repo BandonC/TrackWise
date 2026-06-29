@@ -1,6 +1,14 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import {
+  MapPin,
+  Banknote,
+  Link2,
+  CalendarDays,
+  Clock,
+} from 'lucide-react'
 import { STATUS_LABELS, type Status } from '@trackwise/types'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -14,6 +22,22 @@ import { JobDescriptionForm } from '@/components/applications/job-description-fo
 import { DeleteApplicationButton } from '@/components/applications/delete-application-button'
 
 type PageProps = { params: Promise<{ id: string }> }
+
+const STATUS_DOT: Record<Status, string> = {
+  applied: 'bg-status-applied',
+  screening: 'bg-status-screening',
+  interview: 'bg-status-interview',
+  offer: 'bg-status-offer',
+  rejected: 'bg-status-rejected',
+}
+
+const STATUS_TINT: Record<Status, string> = {
+  applied: 'bg-status-applied/10',
+  screening: 'bg-status-screening/10',
+  interview: 'bg-status-interview/10',
+  offer: 'bg-status-offer/10',
+  rejected: 'bg-status-rejected/10',
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -220,18 +244,26 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         <h1 className="font-heading text-2xl font-semibold leading-tight">
           {application.role}
         </h1>
-        <div className="mt-3 inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-medium">
+        <div
+          className={cn(
+            'mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
+            STATUS_TINT[status],
+          )}
+        >
+          <span className={cn('size-2 rounded-full', STATUS_DOT[status])} />
           {STATUS_LABELS[status]}
         </div>
       </header>
 
-      <section className="mb-8 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
-        <Field label="Location" value={application.location ?? '—'} />
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Field icon={MapPin} label="Location" value={application.location ?? '—'} />
         <Field
+          icon={Banknote}
           label="Salary"
           value={formatSalary(application.salary_min, application.salary_max)}
         />
         <Field
+          icon={Link2}
           label="Source"
           value={
             application.source_url ? (
@@ -248,8 +280,13 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
             )
           }
         />
-        <Field label="Applied" value={formatDate(application.applied_at)} />
         <Field
+          icon={CalendarDays}
+          label="Applied"
+          value={formatDate(application.applied_at)}
+        />
+        <Field
+          icon={Clock}
           label="Last updated"
           value={formatDate(application.last_updated_at)}
         />
@@ -260,7 +297,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           className="group"
           open={!application.job_description}
         >
-          <summary className="mb-2 cursor-pointer font-heading text-sm font-medium text-muted-foreground hover:text-foreground">
+          <summary className="mb-2 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
             Job description
             {!application.job_description && (
               <span className="ml-2 text-xs font-normal">
@@ -277,7 +314,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-2 font-heading text-sm font-medium text-muted-foreground">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Notes
         </h2>
         <NotesForm
@@ -288,7 +325,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           History
         </h2>
         {events && events.length > 0 ? (
@@ -317,7 +354,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Resume fit
         </h2>
         <ResumeFitCard
@@ -328,7 +365,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </section>
 
       <section>
-        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Similar applications
         </h2>
         {visibleSimilar.length === 0 ? (
@@ -344,7 +381,10 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               return (
                 <li key={s.id}>
                   <Link href={`/applications/${s.id}`} className="block">
-                    <Card size="sm" className="transition hover:bg-muted/40">
+                    <Card
+                      size="sm"
+                      className="transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    >
                       <CardHeader>
                         <CardDescription>{s.company}</CardDescription>
                         <CardTitle className="text-base">{s.role}</CardTitle>
@@ -369,7 +409,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       </section>
 
       <section className="mt-12 border-t border-border/50 pt-6">
-        <h2 className="mb-3 font-heading text-sm font-medium text-muted-foreground">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Danger zone
         </h2>
         <DeleteApplicationButton
@@ -383,16 +423,21 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 }
 
 function Field({
+  icon: Icon,
   label,
   value,
 }: {
+  icon: React.ComponentType<{ className?: string }>
   label: string
   value: React.ReactNode
 }) {
   return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5">{value}</div>
+    <div className="rounded-lg border bg-card p-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="size-3.5" />
+        {label}
+      </div>
+      <div className="mt-1 text-sm">{value}</div>
     </div>
   )
 }
@@ -447,7 +492,16 @@ function ResumeFitCard({
             <div className="font-heading text-xl font-semibold tabular-nums">
               {(fit.similarity * 100).toFixed(0)}%
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div
+              className="mt-1.5 h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-muted"
+              role="presentation"
+            >
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${Math.round(fit.similarity * 100)}%` }}
+              />
+            </div>
+            <div className="mt-1.5 text-xs text-muted-foreground">
               vs &ldquo;{resumeLabel ?? '—'}&rdquo;
             </div>
             <div className="text-xs text-muted-foreground">
