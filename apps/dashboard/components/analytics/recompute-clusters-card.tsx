@@ -42,7 +42,7 @@ export function RecomputeClustersCard({
 
   return (
     <Card>
-      <CardHeader className="-mt-4 border-b bg-muted pt-4">
+      <CardHeader className="border-b">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Response rate by cluster</CardTitle>
@@ -67,7 +67,7 @@ export function RecomputeClustersCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-4">
+      <CardContent>
         <ClusterRateChart data={data} />
         {lastResult && (
           <p

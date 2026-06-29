@@ -21,6 +21,14 @@ import {
 
 export type GroupedApplications = Record<Status, KanbanApplication[]>
 
+const STATUS_DOT: Record<Status, string> = {
+  applied: 'bg-status-applied',
+  screening: 'bg-status-screening',
+  interview: 'bg-status-interview',
+  offer: 'bg-status-offer',
+  rejected: 'bg-status-rejected',
+}
+
 type Move = { id: string; fromStatus: Status; toStatus: Status }
 
 function applyMove(
@@ -131,10 +139,13 @@ function KanbanColumn({
       }`}
     >
       <header className="flex items-center justify-between border-b bg-muted px-3 py-2">
-        <h2 className="font-heading text-sm font-medium">
-          {STATUS_LABELS[status]}
-        </h2>
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <div className="flex items-center gap-2">
+          <span className={`size-2 rounded-full ${STATUS_DOT[status]}`} />
+          <h2 className="font-heading text-sm font-medium">
+            {STATUS_LABELS[status]}
+          </h2>
+        </div>
+        <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
           {applications.length}
         </span>
       </header>

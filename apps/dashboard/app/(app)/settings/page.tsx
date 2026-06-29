@@ -1,5 +1,14 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { User, Database, Shield, TriangleAlert, Download } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import { DeleteAccount } from './delete-account'
 
@@ -13,49 +22,77 @@ export default async function SettingsPage() {
   const email = data.user?.email ?? null
 
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-10 px-6 py-10">
+    <main className="mx-auto w-full max-w-2xl space-y-6 px-6 py-10">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="font-heading text-2xl font-semibold">Settings</h1>
       </header>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Account</h2>
-        <p className="text-sm">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="size-4 text-muted-foreground" />
+            Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
           Signed in as <span className="font-medium">{email}</span>
-        </p>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Your data</h2>
-        <p className="text-sm text-muted-foreground">
-          Download all of your applications as a CSV file, including notes.
-        </p>
-        <a
-          href="/applications/export"
-          download
-          className="inline-flex h-9 items-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          Export as CSV
-        </a>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="size-4 text-muted-foreground" />
+            Your data
+          </CardTitle>
+          <CardDescription>
+            Download all of your applications as a CSV file, including notes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a
+            href="/applications/export"
+            download
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            <Download className="size-4" />
+            Export as CSV
+          </a>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Legal</h2>
-        <p className="text-sm">
-          <Link href="/privacy" className="underline hover:text-foreground">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="size-4 text-muted-foreground" />
+            Legal
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
+          <Link
+            href="/privacy"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
             Privacy Policy
           </Link>
-        </p>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3 rounded-md border border-destructive/40 p-4">
-        <h2 className="text-sm font-medium text-destructive">Danger zone</h2>
-        <p className="text-sm text-muted-foreground">
-          Permanently delete your account and all associated data. This
-          cannot be undone.
-        </p>
-        <DeleteAccount />
-      </section>
+      <Card className="ring-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <TriangleAlert className="size-4" />
+            Danger zone
+          </CardTitle>
+          <CardDescription>
+            Permanently delete your account and all associated data. This
+            cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccount />
+        </CardContent>
+      </Card>
     </main>
   )
 }

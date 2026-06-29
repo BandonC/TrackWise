@@ -161,13 +161,13 @@ export default async function AnalyticsPage({
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader className="-mt-4 border-b bg-muted pt-4">
+          <CardHeader className="border-b">
             <CardTitle>Response rate</CardTitle>
             <CardDescription>
               Share of applications that moved past Applied
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent>
             {current.total === 0 ? (
               <p className="text-sm text-muted-foreground">No data yet</p>
             ) : (
@@ -190,19 +190,19 @@ export default async function AnalyticsPage({
         </Card>
 
         <Card>
-          <CardHeader className="-mt-4 border-b bg-muted pt-4">
+          <CardHeader className="border-b">
             <CardTitle>Funnel by status</CardTitle>
             <CardDescription>
               Applications at each stage
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent>
             <FunnelChart data={funnelData} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="-mt-4 border-b bg-muted pt-4">
+          <CardHeader className="border-b">
             <CardTitle>Time to first response</CardTitle>
             <CardDescription>
               {responseDays.length === 0
@@ -215,19 +215,19 @@ export default async function AnalyticsPage({
                   }`}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent>
             <TimeHistogram buckets={histogram} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="-mt-4 border-b bg-muted pt-4">
+          <CardHeader className="border-b">
             <CardTitle>Response rate by source</CardTitle>
             <CardDescription>
               Where applications convert best
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent>
             <SourceRateChart data={sourceData} />
           </CardContent>
         </Card>
