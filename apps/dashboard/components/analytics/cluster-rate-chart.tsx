@@ -17,7 +17,7 @@ export type ClusterDatum = {
 }
 
 const config = {
-  rate: { label: 'Response rate', color: 'var(--chart-2)' },
+  rate: { label: 'Response rate', color: 'var(--primary)' },
 } satisfies ChartConfig
 
 export function ClusterRateChart({ data }: { data: ClusterDatum[] }) {

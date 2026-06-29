@@ -10,7 +10,7 @@ import {
 import type { HistogramBucket } from '@/lib/analytics/buckets'
 
 const config = {
-  count: { label: 'Responses', color: 'var(--chart-2)' },
+  count: { label: 'Responses', color: 'var(--primary)' },
 } satisfies ChartConfig
 
 export function TimeHistogram({ buckets }: { buckets: HistogramBucket[] }) {

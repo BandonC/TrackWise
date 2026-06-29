@@ -1,6 +1,6 @@
 'use client'
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
 import {
   ChartContainer,
   ChartTooltip,
@@ -11,8 +11,16 @@ import { STATUSES, STATUS_LABELS, type Status } from '@trackwise/types'
 
 export type FunnelDatum = { status: Status; count: number }
 
+const STATUS_FILL: Record<Status, string> = {
+  applied: 'var(--status-applied)',
+  screening: 'var(--status-screening)',
+  interview: 'var(--status-interview)',
+  offer: 'var(--status-offer)',
+  rejected: 'var(--status-rejected)',
+}
+
 const config = {
-  count: { label: 'Applications', color: 'var(--chart-1)' },
+  count: { label: 'Applications', color: 'var(--primary)' },
 } satisfies ChartConfig
 
 export function FunnelChart({ data }: { data: FunnelDatum[] }) {
@@ -49,7 +57,11 @@ export function FunnelChart({ data }: { data: FunnelDatum[] }) {
           width={80}
         />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <Bar dataKey="count" fill="var(--color-count)" radius={4} />
+        <Bar dataKey="count" radius={4}>
+          {rows.map((row) => (
+            <Cell key={row.status} fill={STATUS_FILL[row.status]} />
+          ))}
+        </Bar>
       </BarChart>
     </ChartContainer>
   )

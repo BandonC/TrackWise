@@ -16,7 +16,7 @@ export type SourceDatum = {
 }
 
 const config = {
-  rate: { label: 'Response rate', color: 'var(--chart-3)' },
+  rate: { label: 'Response rate', color: 'var(--primary)' },
 } satisfies ChartConfig
 
 export function SourceRateChart({ data }: { data: SourceDatum[] }) {
