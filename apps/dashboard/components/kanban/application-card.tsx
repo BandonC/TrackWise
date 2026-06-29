@@ -41,7 +41,7 @@ function CardBody({
   return (
     <Card
       size="sm"
-      className="cursor-grab transition hover:bg-muted/40 active:cursor-grabbing"
+      className="cursor-grab transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing"
     >
       <CardContent className="flex flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
