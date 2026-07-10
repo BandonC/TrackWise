@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { RangeFilter } from '@/components/analytics/range-filter'
 import { FunnelChart, type FunnelDatum } from '@/components/analytics/funnel-chart'
 import { TimeHistogram } from '@/components/analytics/time-histogram'
+import { VolumeChart } from '@/components/analytics/volume-chart'
 import {
   SourceRateChart,
   type SourceDatum,
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/card'
 import { parseRange, resolveWindow, type Range } from '@/lib/analytics/range'
 import { bucketize } from '@/lib/analytics/buckets'
+import { weeklyVolume } from '@/lib/analytics/weekly-volume'
 
 type RateRow = { status: string | null; applied_at: string | null }
 type SourceRow = RateRow & { source_site: string | null }
@@ -106,6 +108,7 @@ export default async function AnalyticsPage({
   const rateRows = currentRate.data as RateRow[]
   const current = aggregate(rateRows)
   const funnelData = countByStatus(rateRows)
+  const volume = weeklyVolume(rateRows, window.startISO, window.endISO)
 
   const bySource = new Map<string, RateRow[]>()
   for (const row of sourceRows.data as SourceRow[]) {
@@ -158,6 +161,18 @@ export default async function AnalyticsPage({
         </div>
         <RangeFilter />
       </header>
+
+      <section className="mb-4">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>Application volume</CardTitle>
+            <CardDescription>Applications submitted per week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VolumeChart data={volume} />
+          </CardContent>
+        </Card>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
