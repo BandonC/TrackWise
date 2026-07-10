@@ -10,6 +10,7 @@ import { signOut } from '@/app/(app)/actions'
 
 const LINKS = [
   { href: '/', label: 'Applications' },
+  { href: '/applications', label: 'List' },
   { href: '/analytics', label: 'Analytics' },
   { href: '/resume', label: 'Resume' },
   { href: '/settings', label: 'Settings' },
