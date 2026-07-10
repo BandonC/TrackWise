@@ -5,6 +5,7 @@ import {
   type GroupedApplications,
 } from '@/components/kanban/board'
 import { AddApplicationDialog } from '@/components/kanban/add-application-dialog'
+import { FollowUpDigest } from '@/components/kanban/follow-up-digest'
 
 function emptyGroups(): GroupedApplications {
   const groups = {} as GroupedApplications
@@ -41,7 +42,14 @@ export default async function ApplicationsPage() {
         </div>
         <AddApplicationDialog />
       </header>
-      {data.length === 0 ? <EmptyState /> : <KanbanBoard grouped={grouped} />}
+      {data.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <>
+          <FollowUpDigest applications={data} />
+          <KanbanBoard grouped={grouped} />
+        </>
+      )}
     </main>
   )
 }
