@@ -31,6 +31,7 @@ app/
   (app)/                     # Auth-guarded by the proxy.
     page.tsx                 # Kanban board, default landing.
     analytics/page.tsx
+    applications/page.tsx    # Searchable/filterable list of all applications.
     applications/[id]/page.tsx
     resume/page.tsx          # Resume paste/upload + chunked embedding.
     settings/page.tsx

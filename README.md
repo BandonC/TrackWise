@@ -7,7 +7,7 @@ Most trackers treat the application list as the primary artifact and bolt analyt
 
 ![TrackWise Kanban board](./docs/screenshots/01-kanban.png)
 
-> **Status:** Completed. Dashboard live on Vercel; Chrome extension published on the [Chrome Web Store](https://chromewebstore.google.com/detail/trackwise/ljmiflnipemagmaihpfnmpmbdbjehenm) (unlisted — installable via that link). See [Privacy Policy](https://trackwise-lac-nu.vercel.app/privacy).
+> **Status:** Completed. Dashboard live at [trackwise.bandonc.com](https://trackwise.bandonc.com); Chrome extension published on the [Chrome Web Store](https://chromewebstore.google.com/detail/trackwise/ljmiflnipemagmaihpfnmpmbdbjehenm) (unlisted — installable via that link). See [Privacy Policy](https://trackwise.bandonc.com/privacy).
 
 ## Why this exists
 
@@ -26,12 +26,13 @@ Existing trackers (Huntr, Teal, Simplify) treat the application list as the arti
 - **"Check fit" overlay** — alongside Save, a Check-fit button shows how the current page matches your history and your resume without leaving the site. Scores are cached for 24h per job posting.
 
 ### Track
-- **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators.
+- **Kanban board** — five-column drag-and-drop (Applied → Screening → Interview → Offer → Rejected) with stale-application indicators, and a follow-up digest above the board that flags Interview/Offer threads gone quiet for over a week.
+- **Application list** — a searchable, filterable, sortable table of every application at `/applications`, for when the board gets crowded.
 - **Editable notes and JD** — inline editing on the application detail page, saved via server actions. Editing the role, company, notes, or JD re-fires the embedding chain.
 - **CSV export** — one-click export of all your applications from the dashboard.
 
 ### Learn
-- **Analytics page** — response rate, funnel by status, time-to-response histogram, response rate by source. Date-range filter.
+- **Analytics page** — a weekly application-volume trend plus response rate, funnel by status, time-to-response histogram, and response rate by source. Date-range filter.
 - **Cluster analytics** — K-means over embeddings groups your applications into clusters labelled by the top companies in each, with per-cluster response rates. Recompute on demand.
 - **Semantic similarity** — each application is embedded by Voyage AI (`voyage-3`, 1024 dims) and matched against your others via pgvector cosine search. Burst rate-limit failures are retried automatically with exponential backoff.
 - **Resume fit** — paste or upload a resume (PDF/DOCX text-extracted in-browser). Section-level chunks are embedded; the top candidates per job go through Claude Haiku for a 0-100 score with a one-sentence reason. Fallback chain Haiku → Voyage rerank-2.5 → raw cosine ensures the card always renders. Results cache per (application, resume) pair.
@@ -42,10 +43,16 @@ Existing trackers (Huntr, Teal, Simplify) treat the application list as the arti
 ## Screenshots
 
 ### Analytics
-![Analytics page with response rate, funnel, time-to-response, and source breakdown](./docs/screenshots/02-analytics.png)
+Weekly application-volume trend, response rate, and funnel by status up top; time-to-first-response, response rate by source, and per-cluster response rate below. Date-range filter (shown on "All time").
 
-### Cluster analytics
-![Response-rate-by-cluster card with three K-means clusters labelled by their top companies](./docs/screenshots/06-clusters.png)
+![Analytics page top: application-volume chart, response rate, and funnel by status](./docs/screenshots/02-analytics.png)
+
+![Analytics page continued: time-to-first-response histogram, response rate by source, and response rate by cluster](./docs/screenshots/10-analytics-detail.png)
+
+### Application list
+Searchable, filterable, sortable table of every application; rows link to the detail view.
+
+![Searchable application list with status filter chips and sortable columns](./docs/screenshots/09-list.png)
 
 ### Application detail
 Resume fit score with one-sentence reasoning, collapsible job description, status history, and Similar applications by cosine band.
