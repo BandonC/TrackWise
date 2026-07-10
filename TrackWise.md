@@ -337,6 +337,7 @@ app/
   (app)/
     page.tsx                     # Kanban board (default landing)
     analytics/page.tsx           # Analytics dashboard
+    applications/page.tsx        # Searchable/filterable list of all applications
     applications/[id]/page.tsx   # Detail view + similar jobs
     resume/page.tsx              # Resume paste/upload + chunked embedding
     settings/page.tsx
@@ -350,12 +351,15 @@ Default landing page for authenticated users. Five columns map to the status enu
 
 Drag-and-drop between columns uses @dnd-kit/core. On drop, the card's new status is written to Postgres optimistically. The status-change trigger automatically inserts a row into `application_events`, requiring no client logic.
 
+A follow-up digest sits above the columns: a muted line listing warm threads that have gone quiet — applications in Interview or Offer not updated in more than seven days, sorted most-overdue first (capped at five, then `+N more`). Applied and Screening are excluded deliberately (early-stage or cold silence is the norm and a nudge rarely helps); the line renders only when the set is non-empty, so it never nags. It reuses the card's seven-day staleness definition from `lib/applications/stale.ts`.
+
 ### 5.4 Analytics page
 
-Four metrics in a single screen, with a date-range filter (last 30 days, 90 days, all time):
+A weekly application-volume trend plus four response-focused metrics in a single screen, with a date-range filter (last 30 days, 90 days, all time). All respect the active window:
 
 | Metric | Visualization | Data source |
 |---|---|---|
+| Application volume | Weekly bar chart (full-width, top) | Buckets `applications.applied_at` in the active window; empty weeks shown as zeros |
 | Response rate | Stat card with delta vs prior period | `v_response_rate` view |
 | Funnel by status | Horizontal bar / funnel chart | Aggregate of `applications.status` |
 | Time to first response | Histogram | `v_time_to_response` view |
@@ -513,6 +517,10 @@ as $$
 $$;
 ```
 
+### 5.7 Application list
+
+A flat, searchable view of every application at `/applications`, complementing the Kanban board for when the board stops being scannable. Case-insensitive text search over company, role, and location; status filter chips (toggle any of the five); and sortable columns (Company, Applied, Last updated), defaulting to newest-first. Rows link to the detail view. Client-side filter/sort over the server-fetched rows — no new query, no pagination (fine into the hundreds; revisit at thousands).
+
 ---
 
 ## 6. Security
@@ -588,7 +596,7 @@ trackwise/
 
 ### 7.2 Dashboard
 
-Deploys to Vercel via GitHub integration. Pushes to `main` trigger production deploys. Environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) are set in the Vercel dashboard.
+Deploys to Vercel via GitHub integration. Pushes to `main` trigger production deploys. Served from the custom domain `trackwise.bandonc.com` (Cloudflare CNAME to Vercel, DNS-only); the auto-generated `*.vercel.app` URL stays live as a fallback, and both hosts are in Supabase Auth's redirect allowlist. Environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`) are set in the Vercel dashboard. `NEXT_PUBLIC_SITE_URL` is the OAuth `redirectTo` base and the only value pinned to the domain — the `/auth/callback` route self-heals off request origin, so both hosts work for sign-in.
 
 ### 7.3 Extension
 
@@ -695,6 +703,11 @@ Lightweight decision log. Each entry is the choice made and the reason in one or
 - **`last_updated_at` bumps only on user-facing changes** (2026-06-11). The status-change trigger previously refreshed it on every update, so machine writes (embedding write-back, fit-score cache on detail view, cluster recompute) silently reset the kanban's stale indicators. The trigger now diffs OLD/NEW as jsonb with system columns removed. New machine-written columns must be added to the trigger's `system_cols` list.
 - **Per-user write bounds on top of RLS** (2026-06-11). Length CHECKs on all client-writable text columns, insert quotas (applications ≤ 5000, resumes ≤ 20), and `resume_chunks` client writes revoked — see §6.7. RLS isolates users from each other; these bound what a hostile or buggy client can do to its own account's storage.
 - **Extension fit cache keyed on parser-derived job id, not URL** (2026-06-12, v1.0.2). LinkedIn/Indeed search-page URLs churn unrelated query params while showing the same posting, so URL keying re-scored the same job per variant. Parsers expose `jobKey(url)` (`linkedin:<id>` / `indeed:<jk>`); the background falls back to the full href when no id extracts — deliberately not query-stripped, since search-page paths are identical across jobs.
+- **Dashboard moved to a custom domain** (`trackwise.bandonc.com`, 2026-07-10). Chose a subdomain over the apex (`bandonc.com` reserved for a future portfolio); Cloudflare CNAME to Vercel, DNS-only. The only domain-coupled code is `NEXT_PUBLIC_SITE_URL` (the OAuth `redirectTo` base) — `/auth/callback` self-heals off request origin, the extension auths via `chromiumapp.org`, and Google OAuth points at the Supabase project URL, so none of those change with the dashboard domain. The `*.vercel.app` URL is kept live as a fallback (both hosts in the Supabase Auth allowlist); dropping the domain later means reverting `SITE_URL` and scrubbing the two Supabase Auth entries before the name expires.
+- **`signInWithGoogle` throws on a missing `NEXT_PUBLIC_SITE_URL`** (2026-07-09). Fail loud instead of building `redirectTo: "undefined/auth/callback"` and hitting an opaque Supabase "redirect not allowed" error at runtime.
+- **Follow-up digest scoped to Interview + Offer** (2026-07-10). A board-top muted line for warm threads gone quiet (>7 days). Applied and Screening are excluded on purpose — like a cold application, early-stage silence is the norm and a nudge rarely helps; after an interview it does. Renders only when non-empty so it never nags. Reuses the card's 7-day staleness, extracted to `lib/applications/stale.ts` so the two can't drift.
+- **Weekly application-volume chart on Analytics** (2026-07-10). Full-width bars at the top, one per UTC-aligned week, empty weeks as zeros. Reuses the `v_response_rate` rows the page already fetches (window-filtered) — no new query or view. Respects the range filter; "all time" starts at the earliest application.
+- **Searchable application list at `/applications`** (2026-07-10). Client-side search/filter/sort over server-fetched rows; the scalable complement to the board, kept independent of the digest's `stale.ts` so it merges on its own. Shipped with `scrollbar-gutter: stable` in `globals.css` to kill filter-induced layout shift (centered content jumping as the row count toggles the scrollbar) — a global fix that steadies every page.
 
 ---
 
