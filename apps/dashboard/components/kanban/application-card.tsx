@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useDraggable } from '@dnd-kit/core'
 import type { Status } from '@trackwise/types'
 import { Card, CardContent } from '@/components/ui/card'
+import { isStale } from '@/lib/applications/stale'
 
 export type KanbanApplication = {
   id: string
@@ -15,13 +16,8 @@ export type KanbanApplication = {
   status: Status
 }
 
-const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000
 // Must match PointerSensor activationConstraint.distance in board.tsx.
 const DRAG_THRESHOLD_PX = 5
-
-function isStale(lastUpdatedAt: string, now: number): boolean {
-  return now - new Date(lastUpdatedAt).getTime() > STALE_THRESHOLD_MS
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
