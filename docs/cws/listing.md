@@ -52,7 +52,7 @@ PRIVACY
 • Resume PDF/DOCX files are parsed in your browser; only the extracted text is uploaded.
 • No tracking, no ads, no upsells. Account deletion is one click and cascades to every saved row.
 
-Privacy policy: https://trackwise-lac-nu.vercel.app/privacy
+Privacy policy: https://trackwise.bandonc.com/privacy
 Source: github.com/BandonC/TrackWise
 
 ## Single purpose
@@ -85,7 +85,7 @@ The extension does not request `<all_urls>`, `tabs`, `cookies`, or `webRequest`.
 - ☑ I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - ☑ I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** `https://trackwise-lac-nu.vercel.app/privacy`
+**Privacy policy URL:** `https://trackwise.bandonc.com/privacy`
 
 ## Distribution
 - Visibility: Public
