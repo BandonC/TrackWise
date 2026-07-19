@@ -246,7 +246,7 @@ export function ApplicationsList({
                 >
                   <td className="px-3 py-2 font-medium">
                     <Link
-                      href={`/applications/${a.id}`}
+                      href={`/applications/${a.id}?from=list`}
                       className="hover:underline"
                     >
                       {a.company}

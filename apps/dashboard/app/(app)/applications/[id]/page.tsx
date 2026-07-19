@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { BackButton } from '@/components/back-button'
 import {
   MapPin,
   Banknote,
@@ -21,7 +22,10 @@ import { NotesForm } from '@/components/applications/notes-form'
 import { JobDescriptionForm } from '@/components/applications/job-description-form'
 import { DeleteApplicationButton } from '@/components/applications/delete-application-button'
 
-type PageProps = { params: Promise<{ id: string }> }
+type PageProps = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string }>
+}
 
 const STATUS_DOT: Record<Status, string> = {
   applied: 'bg-status-applied',
@@ -80,8 +84,13 @@ function similarityBand(
   return { label: '', visible: false }
 }
 
-export default async function ApplicationDetailPage({ params }: PageProps) {
+export default async function ApplicationDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params
+  const { from } = await searchParams
+  const originQuery = from === 'list' ? '?from=list' : ''
   const supabase = await createClient()
 
   const { data: application, error } = await supabase
@@ -230,12 +239,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8">
-      <Link
-        href="/"
-        className="mb-6 inline-block text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Back to board
-      </Link>
+      <BackButton />
 
       <header className="mb-6">
         <div className="mb-1 text-sm text-muted-foreground">
@@ -380,7 +384,10 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               const band = similarityBand(s.similarity)
               return (
                 <li key={s.id}>
-                  <Link href={`/applications/${s.id}`} className="block">
+                  <Link
+                    href={`/applications/${s.id}${originQuery}`}
+                    className="block"
+                  >
                     <Card
                       size="sm"
                       className="transition-all hover:-translate-y-0.5 hover:shadow-md"
