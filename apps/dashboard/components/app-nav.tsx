@@ -1,9 +1,11 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { ListChecks, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { RANGE_STORAGE_KEY } from '@/lib/analytics/range'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/app/(app)/actions'
@@ -15,6 +17,11 @@ const LINKS = [
   { href: '/resume', label: 'Resume' },
   { href: '/settings', label: 'Settings' },
 ] as const
+
+// sessionStorage isn't a subscribable store; navigation re-renders this nav
+// (usePathname/useSearchParams change), and getSnapshot re-reads on each
+// render, so the Analytics link stays current without a storage listener.
+const noopSubscribe = () => () => {}
 
 export function AppNav() {
   const pathname = usePathname()
@@ -34,6 +41,17 @@ export function AppNav() {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
+  // Restore the last analytics range within the session (resets on tab
+  // close). Server render and first paint use the bare path to match SSR.
+  const analyticsHref = useSyncExternalStore(
+    noopSubscribe,
+    () => {
+      const saved = window.sessionStorage.getItem(RANGE_STORAGE_KEY)
+      return saved ? `/analytics?${saved}` : '/analytics'
+    },
+    () => '/analytics',
+  )
+
   return (
     <nav className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-6 px-6 py-3">
@@ -49,10 +67,11 @@ export function AppNav() {
         <ul className="flex flex-1 items-center gap-1 text-sm">
           {LINKS.map((link) => {
             const active = isActive(link.href)
+            const href = link.href === '/analytics' ? analyticsHref : link.href
             return (
               <li key={link.href}>
                 <Link
-                  href={link.href}
+                  href={href}
                   className={cn(
                     'rounded-md px-3 py-1.5 font-medium transition-colors',
                     active
