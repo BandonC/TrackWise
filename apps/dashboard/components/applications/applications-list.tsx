@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { STATUSES, STATUS_LABELS, type Status } from '@trackwise/types'
 import { Input } from '@/components/ui/input'
+import { LocalDate } from '@/components/local-date'
 import { cn } from '@/lib/utils'
 
 const STATUS_DOT: Record<Status, string> = {
@@ -45,12 +46,10 @@ export type ApplicationRow = {
 type SortKey = 'company' | 'applied_at' | 'last_updated_at'
 type SortDir = 'asc' | 'desc'
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
 }
 
 function StatusPill({ status }: { status: Status }) {
@@ -257,10 +256,10 @@ export function ApplicationsList({
                     <StatusPill status={a.status as Status} />
                   </td>
                   <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                    {formatDate(a.applied_at)}
+                    <LocalDate iso={a.applied_at} options={DATE_OPTS} />
                   </td>
                   <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                    {formatDate(a.last_updated_at)}
+                    <LocalDate iso={a.last_updated_at} options={DATE_OPTS} />
                   </td>
                 </tr>
               ))

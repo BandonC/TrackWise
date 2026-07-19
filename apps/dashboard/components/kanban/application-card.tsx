@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useDraggable } from '@dnd-kit/core'
 import type { Status } from '@trackwise/types'
 import { Card, CardContent } from '@/components/ui/card'
+import { LocalDate } from '@/components/local-date'
 import { isStale } from '@/lib/applications/stale'
 
 export type KanbanApplication = {
@@ -18,13 +19,6 @@ export type KanbanApplication = {
 
 // Must match PointerSensor activationConstraint.distance in board.tsx.
 const DRAG_THRESHOLD_PX = 5
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function CardBody({
   application,
@@ -56,7 +50,11 @@ function CardBody({
           {application.role}
         </div>
         <div className="text-xs text-muted-foreground">
-          Applied {formatDate(application.applied_at)}
+          Applied{' '}
+          <LocalDate
+            iso={application.applied_at}
+            options={{ month: 'short', day: 'numeric' }}
+          />
         </div>
       </CardContent>
     </Card>

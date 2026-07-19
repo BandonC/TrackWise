@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { BackButton } from '@/components/back-button'
+import { LocalDate } from '@/components/local-date'
 import {
   MapPin,
   Banknote,
@@ -43,23 +44,18 @@ const STATUS_TINT: Record<Status, string> = {
   rejected: 'bg-status-rejected/10',
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
 }
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+const DATETIME_OPTS: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
 }
 
 function formatSalary(min: number | null, max: number | null): string {
@@ -287,12 +283,14 @@ export default async function ApplicationDetailPage({
         <Field
           icon={CalendarDays}
           label="Applied"
-          value={formatDate(application.applied_at)}
+          value={<LocalDate iso={application.applied_at} options={DATE_OPTS} />}
         />
         <Field
           icon={Clock}
           label="Last updated"
-          value={formatDate(application.last_updated_at)}
+          value={
+            <LocalDate iso={application.last_updated_at} options={DATE_OPTS} />
+          }
         />
       </section>
 
@@ -347,7 +345,7 @@ export default async function ApplicationDetailPage({
                       : ev.event_type}
                 </span>
                 <span className="text-xs text-muted-foreground tabular-nums">
-                  {formatDateTime(ev.created_at)}
+                  <LocalDate iso={ev.created_at} options={DATETIME_OPTS} />
                 </span>
               </li>
             ))}
