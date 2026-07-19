@@ -1,6 +1,10 @@
 export const PRESET_RANGES = ['30d', '90d', 'all', 'custom'] as const
 export type Range = (typeof PRESET_RANGES)[number]
 
+// sessionStorage key holding the last-selected range query string, so the
+// nav's Analytics link restores it within a session (resets on tab close).
+export const RANGE_STORAGE_KEY = 'analytics-range'
+
 export const PRESET_LABELS: Record<Exclude<Range, 'custom'>, string> = {
   '30d': 'Last 30 days',
   '90d': 'Last 90 days',

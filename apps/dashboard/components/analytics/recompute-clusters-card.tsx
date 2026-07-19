@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useMounted } from '@/lib/use-mounted'
 import { recomputeClusters, type RecomputeResult } from '@/app/(app)/analytics/actions'
 import { ClusterRateChart, type ClusterDatum } from './cluster-rate-chart'
 
@@ -22,6 +23,7 @@ export function RecomputeClustersCard({
 }) {
   const [pending, startTransition] = useTransition()
   const [lastResult, setLastResult] = useState<RecomputeResult | null>(null)
+  const mounted = useMounted()
 
   const onRecompute = () => {
     setLastResult(null)
@@ -35,10 +37,11 @@ export function RecomputeClustersCard({
   const relative = computed
     ? `Computed ${formatDistanceToNow(computed, { addSuffix: true })}`
     : 'Never computed'
-  // Locale-deterministic format so SSR and client hydration match;
-  // toLocaleString() picks the runtime's default locale, which differs
-  // between Node and the browser.
-  const absolute = computed ? format(computed, 'PPpp') : ''
+  // date-fns format is locale-deterministic (unlike toLocaleString), but it
+  // still renders in the runtime's timezone -- UTC on the server, local in
+  // the browser. Gate the tooltip on mount so the server and first client
+  // render agree (no title), then fill it in with the viewer's local time.
+  const absolute = mounted && computed ? format(computed, 'PPpp') : undefined
 
   return (
     <Card>

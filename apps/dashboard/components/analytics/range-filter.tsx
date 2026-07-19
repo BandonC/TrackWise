@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/popover'
 import {
   PRESET_LABELS,
+  RANGE_STORAGE_KEY,
   formatCustomLabel,
   parseDateParam,
   parseRange,
@@ -38,6 +39,9 @@ export function RangeFilter() {
 
   function pushParams(next: URLSearchParams) {
     const query = next.toString()
+    // Remember the selection for this session so returning to analytics via
+    // the nav restores it instead of falling back to the 30d default.
+    window.sessionStorage.setItem(RANGE_STORAGE_KEY, query)
     router.push(query ? `${pathname}?${query}` : pathname)
   }
 
