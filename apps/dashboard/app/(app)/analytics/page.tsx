@@ -162,18 +162,6 @@ export default async function AnalyticsPage({
         <RangeFilter />
       </header>
 
-      <section className="mb-4">
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle>Application volume</CardTitle>
-            <CardDescription>Applications submitted per week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VolumeChart data={volume} />
-          </CardContent>
-        </Card>
-      </section>
-
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="border-b">
@@ -244,6 +232,18 @@ export default async function AnalyticsPage({
           </CardHeader>
           <CardContent>
             <SourceRateChart data={sourceData} />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-4">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>Application volume</CardTitle>
+            <CardDescription>Applications submitted per week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VolumeChart data={volume} />
           </CardContent>
         </Card>
       </section>
