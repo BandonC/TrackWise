@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { ListChecks, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -18,6 +18,21 @@ const LINKS = [
 
 export function AppNav() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Detail pages (/applications/[id]) are reachable from both the board
+  // and the list, so the highlight follows the origin passed via ?from.
+  const isDetail =
+    pathname.startsWith('/applications/') && pathname !== '/applications'
+  const from = searchParams.get('from')
+
+  const isActive = (href: string): boolean => {
+    if (isDetail) {
+      return from === 'list' ? href === '/applications' : href === '/'
+    }
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
     <nav className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
@@ -33,10 +48,7 @@ export function AppNav() {
         </Link>
         <ul className="flex flex-1 items-center gap-1 text-sm">
           {LINKS.map((link) => {
-            const active =
-              link.href === '/'
-                ? pathname === '/'
-                : pathname === link.href || pathname.startsWith(`${link.href}/`)
+            const active = isActive(link.href)
             return (
               <li key={link.href}>
                 <Link
