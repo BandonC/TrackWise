@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
+import { LocalDate } from '@/components/local-date'
 import { createClient } from '@/lib/supabase/server'
 import { ResumeForm } from './resume-form'
 
@@ -8,14 +9,12 @@ export const metadata: Metadata = {
   title: 'Resume — TrackWise',
 }
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+const DATETIME_OPTS: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
 }
 
 export default async function ResumePage() {
@@ -70,7 +69,9 @@ export default async function ResumePage() {
             />
             {hasEmbedding ? 'Embedded' : 'Processing'}
           </span>
-          <span>Updated {formatDateTime(resume.updated_at)}</span>
+          <span>
+            Updated <LocalDate iso={resume.updated_at} options={DATETIME_OPTS} />
+          </span>
           {!hasEmbedding ? <span>Refresh in a moment.</span> : null}
         </div>
       ) : null}
