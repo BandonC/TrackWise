@@ -43,11 +43,11 @@ Existing trackers (Huntr, Teal, Simplify) treat the application list as the arti
 ## Screenshots
 
 ### Analytics
-Weekly application-volume trend, response rate, and funnel by status up top; time-to-first-response, response rate by source, and per-cluster response rate below. Date-range filter (shown on "All time").
+Response rate, funnel by status, time-to-first-response, and response rate by source up top; the weekly application-volume trend and per-cluster response rate below. Date-range filter (shown on "All time").
 
-![Analytics page top: application-volume chart, response rate, and funnel by status](./docs/screenshots/02-analytics.png)
+![Analytics page top: response rate, funnel by status, time-to-first-response histogram, and response rate by source](./docs/screenshots/02-analytics.png)
 
-![Analytics page continued: time-to-first-response histogram, response rate by source, and response rate by cluster](./docs/screenshots/10-analytics-detail.png)
+![Analytics page continued: weekly application-volume chart and response rate by cluster](./docs/screenshots/10-analytics-detail.png)
 
 ### Application list
 Searchable, filterable, sortable table of every application; rows link to the detail view.
