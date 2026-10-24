@@ -79,7 +79,13 @@ export function SourceRateChart({ data }: { data: SourceDatum[] }) {
             />
           }
         />
-        <Bar dataKey="rate" fill="var(--color-rate)" radius={4}>
+        {/* Recharts skips zero-value bars (and their labels) by default. */}
+        <Bar
+          dataKey="rate"
+          fill="var(--color-rate)"
+          radius={4}
+          minPointSize={3}
+        >
           <LabelList
             dataKey="label"
             position="right"
