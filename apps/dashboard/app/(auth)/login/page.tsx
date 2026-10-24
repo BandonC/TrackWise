@@ -1,10 +1,19 @@
 import Link from 'next/link'
-import { ListChecks, MousePointerClick, Sparkles, LineChart } from 'lucide-react'
+import {
+  ListChecks,
+  MousePointerClick,
+  Sparkles,
+  LineChart,
+  Puzzle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { signInWithGoogle } from './actions'
 
-type SearchParams = Promise<{ deleted?: string; error?: string }>
+const EXTENSION_URL =
+  'https://chromewebstore.google.com/detail/trackwise/ljmiflnipemagmaihpfnmpmbdbjehenm'
+
+type SearchParams =Promise<{ deleted?: string; error?: string }>
 
 const FEATURES = [
   {
@@ -29,26 +38,26 @@ export default async function LoginPage({
   const { deleted, error } = await searchParams
 
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-10 px-6 py-12">
-      <div className="w-full max-w-md">
-        {deleted === '1' && (
-          <p
-            role="status"
-            className="mb-4 rounded-md border border-border bg-muted px-4 py-2 text-sm text-muted-foreground"
-          >
-            Your account and all associated data have been deleted.
-          </p>
-        )}
-        {error === 'oauth_failed' && (
-          <p
-            role="alert"
-            className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
-          >
-            Sign-in failed. Please try again.
-          </p>
-        )}
+    <main className="grid min-h-svh lg:grid-cols-2">
+      <div className="flex flex-col items-center justify-center gap-10 px-6 py-12">
+        <div className="w-full max-w-md">
+          {deleted === '1' && (
+            <p
+              role="status"
+              className="mb-4 rounded-md border border-border bg-muted px-4 py-2 text-sm text-muted-foreground"
+            >
+              Your account and all associated data have been deleted.
+            </p>
+          )}
+          {error === 'oauth_failed' && (
+            <p
+              role="alert"
+              className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            >
+              Sign-in failed. Please try again.
+            </p>
+          )}
 
-        <div className="rounded-2xl bg-card p-8 shadow-lg ring-1 ring-foreground/10">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <ListChecks className="size-5" />
@@ -82,16 +91,42 @@ export default async function LoginPage({
           <div className="my-6 border-t" />
 
           <FeatureList />
+
+          <a
+            href={EXTENSION_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            <Puzzle className="size-4" />
+            Get the Chrome extension
+          </a>
         </div>
+
+        <footer className="text-center text-sm text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy Policy
+          </Link>
+        </footer>
       </div>
 
-      <BoardPreview className="w-full max-w-3xl" />
+      <div className="relative hidden items-center justify-center overflow-hidden bg-primary p-12 text-primary-foreground lg:flex">
+        <PlusPattern className="absolute inset-0 size-full text-primary-foreground/15" />
 
-      <footer className="text-center text-sm text-muted-foreground">
-        <Link href="/privacy" className="hover:text-foreground">
-          Privacy Policy
-        </Link>
-      </footer>
+        <div className="relative w-full max-w-2xl pb-44">
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">
+            See where every application stands.
+          </h2>
+          <p className="mt-2 text-base text-primary-foreground/80">
+            From first save to final offer, on one board.
+          </p>
+
+          <div className="relative mt-8 text-foreground">
+            <BoardPreview />
+            <FitPreview className="absolute top-full left-1/2 mt-8 w-56 -translate-x-1/2" />
+          </div>
+        </div>
+      </div>
     </main>
   )
 }
@@ -175,6 +210,53 @@ function BoardPreview({ className }: { className?: string }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function PlusPattern({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden className={className}>
+      <defs>
+        <pattern
+          id="login-plus"
+          width="32"
+          height="32"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M16 11v10M11 16h10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#login-plus)" />
+    </svg>
+  )
+}
+
+function FitPreview({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'rounded-lg bg-card p-3 shadow-lg ring-1 ring-foreground/10',
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">Resume fit</span>
+        <span className="text-xs text-muted-foreground">Globex</span>
+      </div>
+      <div className="mt-1 text-xl font-semibold">78%</div>
+      <div className="mt-2 h-1.5 rounded-full bg-muted">
+        <div className="h-full w-3/4 rounded-full bg-primary" />
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        Matched on: Experience
       </div>
     </div>
   )
