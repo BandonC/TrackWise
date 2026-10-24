@@ -20,6 +20,8 @@ export type KanbanApplication = {
 // Must match PointerSensor activationConstraint.distance in board.tsx.
 const DRAG_THRESHOLD_PX = 5
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
 function CardBody({
   application,
   now,
@@ -27,24 +29,21 @@ function CardBody({
   application: KanbanApplication
   now: number
 }) {
-  const stale = isStale(application.last_updated_at, now)
+  // Rejected is closed; a "no update" flag there is noise.
+  const stale =
+    application.status !== 'rejected' &&
+    isStale(application.last_updated_at, now)
+  const daysSinceUpdate = Math.floor(
+    (now - new Date(application.last_updated_at).getTime()) / DAY_MS,
+  )
   return (
     <Card
       size="sm"
       className="cursor-grab transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing"
     >
       <CardContent className="flex flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="font-heading text-sm font-medium leading-snug">
-            {application.company}
-          </div>
-          {stale ? (
-            <span
-              aria-label="No updates in over a week"
-              title="No updates in over a week"
-              className="mt-1 inline-block size-2 shrink-0 rounded-full bg-destructive"
-            />
-          ) : null}
+        <div className="font-heading text-sm font-medium leading-snug">
+          {application.company}
         </div>
         <div className="text-sm text-muted-foreground">
           {application.role}
@@ -56,6 +55,11 @@ function CardBody({
             options={{ month: 'short', day: 'numeric' }}
           />
         </div>
+        {stale ? (
+          <div className="text-xs font-medium text-muted-foreground">
+            No update in {daysSinceUpdate}d
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   )
