@@ -45,7 +45,7 @@ export function FollowUpDigest({ applications }: { applications: Row[] }) {
   const extra = items.length - shown.length
 
   return (
-    <p className="mb-6 text-xs text-muted-foreground">
+    <p className="mt-1 text-xs text-muted-foreground">
       <span className="font-medium">Worth a follow-up:</span>{' '}
       {shown.map((r, i) => (
         <span key={r.id}>
