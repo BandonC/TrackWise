@@ -1,6 +1,13 @@
 'use client'
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import {
   ChartContainer,
   ChartTooltip,
@@ -28,12 +35,18 @@ export function SourceRateChart({ data }: { data: SourceDatum[] }) {
     )
   }
 
-  const rows = data.map((d) => ({
-    source: d.source,
-    rate: d.rate === null ? 0 : Math.round(d.rate * 1000) / 10,
-    total: d.total,
-    responded: d.responded,
-  }))
+  const rows = data.map((d) => {
+    const rate = d.rate === null ? 0 : Math.round(d.rate * 1000) / 10
+    return {
+      source: d.source,
+      rate,
+      total: d.total,
+      responded: d.responded,
+      // Printed at the bar's end so a 0% source reads as a result, not a
+      // missing bar.
+      label: `${rate}% (${d.responded}/${d.total})`,
+    }
+  })
 
   return (
     <ChartContainer config={config} className="h-64 w-full">
@@ -41,7 +54,7 @@ export function SourceRateChart({ data }: { data: SourceDatum[] }) {
         accessibilityLayer
         data={rows}
         layout="vertical"
-        margin={{ left: 8, right: 16 }}
+        margin={{ left: 8, right: 80 }}
       >
         <CartesianGrid horizontal={false} />
         <XAxis
@@ -66,7 +79,14 @@ export function SourceRateChart({ data }: { data: SourceDatum[] }) {
             />
           }
         />
-        <Bar dataKey="rate" fill="var(--color-rate)" radius={4} />
+        <Bar dataKey="rate" fill="var(--color-rate)" radius={4}>
+          <LabelList
+            dataKey="label"
+            position="right"
+            className="fill-muted-foreground"
+            fontSize={12}
+          />
+        </Bar>
       </BarChart>
     </ChartContainer>
   )
