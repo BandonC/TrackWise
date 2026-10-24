@@ -22,6 +22,14 @@ const DRAG_THRESHOLD_PX = 5
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+const STATUS_STRIP: Record<Status, string> = {
+  applied: 'bg-status-applied',
+  screening: 'bg-status-screening',
+  interview: 'bg-status-interview',
+  offer: 'bg-status-offer',
+  rejected: 'bg-status-rejected',
+}
+
 function CardBody({
   application,
   now,
@@ -39,14 +47,18 @@ function CardBody({
   return (
     <Card
       size="sm"
-      className="cursor-grab transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing"
+      className="relative cursor-grab transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing"
     >
+      <span
+        aria-hidden
+        className={`absolute inset-y-0 left-0 w-1 ${STATUS_STRIP[application.status]}`}
+      />
       <CardContent className="flex flex-col gap-1">
         <div className="font-heading text-sm font-medium leading-snug">
-          {application.company}
+          {application.role}
         </div>
         <div className="text-sm text-muted-foreground">
-          {application.role}
+          {application.company}
         </div>
         <div className="text-xs text-muted-foreground">
           Applied{' '}
