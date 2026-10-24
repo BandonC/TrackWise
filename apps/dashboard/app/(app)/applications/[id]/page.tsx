@@ -234,7 +234,7 @@ export default async function ApplicationDetailPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8">
       <BackButton />
 
       <header className="mb-6">
@@ -255,174 +255,180 @@ export default async function ApplicationDetailPage({
         </div>
       </header>
 
-      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Field icon={MapPin} label="Location" value={application.location ?? '—'} />
-        <Field
-          icon={Banknote}
-          label="Salary"
-          value={formatSalary(application.salary_min, application.salary_max)}
-        />
-        <Field
-          icon={Link2}
-          label="Source"
-          value={
-            application.source_url ? (
-              <a
-                href={application.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline-offset-2 hover:underline"
-              >
-                {application.source_site ?? 'link'}
-              </a>
-            ) : (
-              (application.source_site ?? '—')
-            )
-          }
-        />
-        <Field
-          icon={CalendarDays}
-          label="Applied"
-          value={<LocalDate iso={application.applied_at} options={DATE_OPTS} />}
-        />
-        <Field
-          icon={Clock}
-          label="Last updated"
-          value={
-            <LocalDate iso={application.last_updated_at} options={DATE_OPTS} />
-          }
-        />
-      </section>
-
-      <section className="mb-8">
-        <details
-          className="group"
-          open={!application.job_description}
-        >
-          <summary className="mb-2 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
-            Job description
-            {!application.job_description && (
-              <span className="ml-2 text-xs font-normal">
-                (paste to improve the fit score)
-              </span>
-            )}
-          </summary>
-          <JobDescriptionForm
-            key={application.id}
-            applicationId={application.id}
-            initialJobDescription={application.job_description}
-          />
-        </details>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Notes
-        </h2>
-        <NotesForm
-          key={application.id}
-          applicationId={application.id}
-          initialNotes={application.notes}
-        />
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          History
-        </h2>
-        {events && events.length > 0 ? (
-          <ol className="space-y-2 text-sm">
-            {events.map((ev) => (
-              <li
-                key={ev.id}
-                className="flex items-baseline justify-between gap-4 border-b border-border/50 pb-2 last:border-0"
-              >
-                <span>
-                  {ev.event_type === 'created'
-                    ? 'Created'
-                    : ev.event_type === 'status_change'
-                      ? `${STATUS_LABELS[ev.from_status as Status] ?? ev.from_status} → ${STATUS_LABELS[ev.to_status as Status] ?? ev.to_status}`
-                      : ev.event_type}
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  <LocalDate iso={ev.created_at} options={DATETIME_OPTS} />
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-sm text-muted-foreground">No history yet.</p>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Resume fit
-        </h2>
-        <ResumeFitCard
-          fit={fit}
-          resumeLabel={anyResume?.label ?? null}
-          hasActiveResume={Boolean(anyResume)}
-        />
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Similar applications
-        </h2>
-        {visibleSimilar.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No similar applications found yet. Embeddings populate
-            asynchronously after saving — check back in a moment if this
-            application was just created.
-          </p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {visibleSimilar.map((s) => {
-              const band = similarityBand(s.similarity)
-              return (
-                <li key={s.id}>
-                  <Link
-                    href={`/applications/${s.id}${originQuery}`}
-                    className="block"
+      <div className="grid gap-x-10 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Field icon={MapPin} label="Location" value={application.location ?? '—'} />
+            <Field
+              icon={Banknote}
+              label="Salary"
+              value={formatSalary(application.salary_min, application.salary_max)}
+            />
+            <Field
+              icon={Link2}
+              label="Source"
+              value={
+                application.source_url ? (
+                  <a
+                    href={application.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline-offset-2 hover:underline"
                   >
-                    <Card
-                      size="sm"
-                      className="transition-all hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <CardHeader>
-                        <CardDescription>{s.company}</CardDescription>
-                        <CardTitle className="text-base">{s.role}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="rounded-full bg-muted px-2 py-0.5 font-medium">
-                            {band.label}
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">
-                            {(s.similarity * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+                    {application.source_site ?? 'link'}
+                  </a>
+                ) : (
+                  (application.source_site ?? '—')
+                )
+              }
+            />
+            <Field
+              icon={CalendarDays}
+              label="Applied"
+              value={<LocalDate iso={application.applied_at} options={DATE_OPTS} />}
+            />
+            <Field
+              icon={Clock}
+              label="Last updated"
+              value={
+                <LocalDate iso={application.last_updated_at} options={DATE_OPTS} />
+              }
+            />
+          </section>
 
-      <section className="mt-12 border-t border-border/50 pt-6">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Danger zone
-        </h2>
-        <DeleteApplicationButton
-          applicationId={application.id}
-          role={application.role}
-          company={application.company}
-        />
-      </section>
+          <section className="mb-8">
+            <details
+              className="group"
+              open={!application.job_description}
+            >
+              <summary className="mb-2 cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+                Job description
+                {!application.job_description && (
+                  <span className="ml-2 text-xs font-normal">
+                    (paste to improve the fit score)
+                  </span>
+                )}
+              </summary>
+              <JobDescriptionForm
+                key={application.id}
+                applicationId={application.id}
+                initialJobDescription={application.job_description}
+              />
+            </details>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Notes
+            </h2>
+            <NotesForm
+              key={application.id}
+              applicationId={application.id}
+              initialNotes={application.notes}
+            />
+          </section>
+
+          <section className="mb-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              History
+            </h2>
+            {events && events.length > 0 ? (
+              <ol className="space-y-2 text-sm">
+                {events.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="flex items-baseline justify-between gap-4 border-b border-border/50 pb-2 last:border-0"
+                  >
+                    <span>
+                      {ev.event_type === 'created'
+                        ? 'Created'
+                        : ev.event_type === 'status_change'
+                          ? `${STATUS_LABELS[ev.from_status as Status] ?? ev.from_status} → ${STATUS_LABELS[ev.to_status as Status] ?? ev.to_status}`
+                          : ev.event_type}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      <LocalDate iso={ev.created_at} options={DATETIME_OPTS} />
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted-foreground">No history yet.</p>
+            )}
+          </section>
+        </div>
+
+        <aside>
+          <section className="mb-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Resume fit
+            </h2>
+            <ResumeFitCard
+              fit={fit}
+              resumeLabel={anyResume?.label ?? null}
+              hasActiveResume={Boolean(anyResume)}
+            />
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Similar applications
+            </h2>
+            {visibleSimilar.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No similar applications found yet. Embeddings populate
+                asynchronously after saving — check back in a moment if this
+                application was just created.
+              </p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {visibleSimilar.map((s) => {
+                  const band = similarityBand(s.similarity)
+                  return (
+                    <li key={s.id}>
+                      <Link
+                        href={`/applications/${s.id}${originQuery}`}
+                        className="block"
+                      >
+                        <Card
+                          size="sm"
+                          className="transition-all hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                          <CardHeader>
+                            <CardDescription>{s.company}</CardDescription>
+                            <CardTitle className="text-base">{s.role}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="rounded-full bg-muted px-2 py-0.5 font-medium">
+                                {band.label}
+                              </span>
+                              <span className="text-muted-foreground tabular-nums">
+                                {(s.similarity * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="mt-8 border-t border-border/50 pt-6">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Danger zone
+            </h2>
+            <DeleteApplicationButton
+              applicationId={application.id}
+              role={application.role}
+              company={application.company}
+            />
+          </section>
+        </aside>
+      </div>
     </main>
   )
 }
