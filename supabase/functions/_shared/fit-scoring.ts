@@ -213,10 +213,15 @@ async function scoreWithHaiku(
     // Round in case the model ignores the integer schema; NaN/Infinity
     // are already rejected above, so this can't produce NaN.
     const score = Math.round(Math.max(0, Math.min(100, input.score)));
+    // The schema's maxLength isn't enforced by the model. Cut overlong
+    // reasoning at the last word break and mark it, rather than mid-word.
+    const reasoning = input.reasoning.length <= 200
+      ? input.reasoning
+      : `${input.reasoning.slice(0, 199).replace(/\s+\S*$/, "")}…`;
     return {
       similarity: score / 100,
       section_label: candidates[idx].section_label,
-      reasoning: input.reasoning.slice(0, 200),
+      reasoning,
       source: "llm",
     };
   } catch (err) {
