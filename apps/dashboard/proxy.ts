@@ -1,7 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/auth/', '/privacy']
+// /api/keepalive is called by Vercel cron with no session; the route checks
+// CRON_SECRET itself.
+const PUBLIC_PATHS = [
+  '/login',
+  '/signup',
+  '/auth/',
+  '/privacy',
+  '/api/keepalive',
+]
 
 export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request)
