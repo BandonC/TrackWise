@@ -134,7 +134,9 @@ trackwise/
 
 ## Local development
 
-Requires Node 24 (`.nvmrc`), pnpm 10, and Docker (for `supabase start`).
+Requires Node 24 (`.nvmrc`) and pnpm 10. Docker is only needed for migration testing: the apps run against the hosted Supabase project, so everyday dev needs no local stack. When you do run `supabase start`, finish with `supabase stop`, which keeps your local data.
+
+TODO: Dev and e2e currently hit production; set up a separate free Supabase dev project (secrets, vault URLs, OAuth redirects).
 
 ```bash
 # 1. Install
@@ -146,7 +148,7 @@ cp .env.example apps/extension/.env.local
 # Fill in the Supabase URL/keys for each app.
 
 # 3. Run the dashboard
-pnpm --filter dashboard dev
+pnpm dev
 # → http://localhost:3000
 
 # 4. Build the extension and load it unpacked

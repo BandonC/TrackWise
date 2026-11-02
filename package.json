@@ -3,6 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "packageManager": "pnpm@10.33.4",
+  "scripts": {
+    "dev": "pnpm --filter dashboard dev",
+    "dev:ext": "pnpm --filter extension dev"
+  },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"]
   }
